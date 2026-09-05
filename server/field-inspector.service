@@ -1,0 +1,25 @@
+[Unit]
+Description=Field Inspector Pebble voice bridge
+After=network-online.target api-gateway.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=coolhand
+WorkingDirectory=/home/coolhand/servers/field-inspector
+ExecStart=/usr/bin/python3 server/inspector.py --port 5055
+Environment=PYTHONDONTWRITEBYTECODE=1
+UMask=0077
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/home/coolhand/.local/state/field-inspector
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+MemoryMax=192M
+TasksMax=40
+
+[Install]
+WantedBy=multi-user.target

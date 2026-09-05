@@ -1,0 +1,12 @@
+/build/
+/node_modules/
+.waf-*
+.lock-waf*
+.pebble-sdk*
+.DS_Store
+*.pyc
+__pycache__/
+.env
+.env.*
+*.log
+/dist/
