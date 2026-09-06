@@ -1,7 +1,7 @@
 {
   "name": "pebble-field-inspector",
   "author": "Luke Steuber",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "private": true,
   "dependencies": {},
   "scripts": {"test:client": "node tests/client.test.js && bash tests/audio.test.sh"},

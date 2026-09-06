@@ -1,13 +1,28 @@
-# Field Inspector 1.0.0 verification
+# Field Inspector 1.0.1 verification
 
-Recorded September 4, 2026. The release is an interactive watchapp with UUID `e2fd86ec-dfb8-460c-afc1-ebe4d071657a`.
+Recovery update checked September 5, 2026. The release is an interactive watchapp
+with UUID `e2fd86ec-dfb8-460c-afc1-ebe4d071657a`.
+
+Version 1.0.1 rejects malformed endpoint ports and token control characters before
+marking phone setup ready. Synchronous request setup/send failures now return a
+short settings error instead of leaving the watch waiting. Failed audio
+acknowledgements from an older request cannot schedule retries in a newer turn.
+The added regressions failed before the corresponding fixes and pass afterward.
+The first-use docs now explain the connected-phone demo and session-only replay.
+
+The automated checks below were rerun for 1.0.1, including a clean six-platform
+build. The emulator and authenticated service observations remain the September 4
+checks of 1.0.0; they were not repeated for this recovery patch. On September 5,
+public health still returned 200 and an unauthenticated inspect request returned
+401. No model call was needed for the patch checks.
 
 ## Automated checks
 
 - Pebble CLI 5.0.39 / SDK 4.33.1 builds all six target binaries: Basalt, Chalk, Diorite, Emery, Flint, and Gabbro. Platforms doctor reports ready; its only finding is the optional missing `platforms.yml`.
-- Eleven phone-protocol tests cover credential exclusion from watch messages, an actual Clay settings roundtrip, invalid setup, stale responses, cancellation, reply IDs and Unicode limits, ordered acknowledgements, bounded retry, speaker/mute fallback, invalid audio, and offline demo/replay.
+- Sixteen phone-protocol tests cover credential exclusion from watch messages, an actual Clay settings roundtrip, invalid setup and ports, token control characters, synchronous XHR construction/open/header/send failures and recovery, stale responses, cancellation, reply IDs and Unicode limits, ordered acknowledgements, bounded retry, speaker/mute fallback, invalid audio, and offline demo/replay.
 - The C audio-buffer test delivers 128,000 bytes through the 8 KB ring with partial consumption, wraparound, duplicates, full-buffer backpressure, malformed sequences, and end validation.
 - Twenty-eight server tests pass locally and on the VPS. They cover private hashed credentials and revocation, atomic concurrent quotas, restart/day budgets, two simultaneous turns, bounded input/output, speech fallback, malformed HTTP framing, JSON errors and private cache headers, gateway redirects, and actual MP3 conversion to signed 8-bit mono 8 kHz PCM. These tests mock model requests.
+- Eight compiled cases exercise the production outbox-failure callback, covering stale, missing, malformed, and current request acknowledgements.
 - The release staging script checks PBW ZIP integrity, app identity, version, app type, JavaScript, and every target binary before recording a source commit and SHA-256 checksum.
 
 ## Observed execution
