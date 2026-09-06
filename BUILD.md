@@ -1,6 +1,6 @@
 # Building Field Inspector
 
-Use Pebble CLI 5.0.39 with SDK 4.33.1, Node.js, Python 3.10 or newer, a C compiler for the host audio checks, and `ffmpeg` for the server conversion check. Clay is vendored with its license; the watch build needs no package download.
+Use Pebble CLI 5.0.39 with SDK 4.33.1, Node.js, Python 3.10 or newer, a C compiler for the host audio and acknowledgement checks, and `ffmpeg` for the server conversion check. Clay is vendored with its license; the watch build needs no package download.
 
 ```sh
 python3 -m unittest discover -s server -p 'test_*.py'
@@ -20,6 +20,10 @@ From committed, clean source, run `bash stage-release.sh`. It repeats the releva
 pebble install --emulator emery build/pebble-field-inspector.pbw
 pebble screenshot --emulator emery --no-open /tmp/field-inspector.png
 ```
+
+Confirm Field Inspector is visibly open after installation; an emulator can
+leave the previous app on screen. The demo still needs its emulated phone
+companion, even though it makes no internet request.
 
 Repeat with Diorite and Chalk/Gabbro to check 2 SE and circular layouts. Exercise idle help, the labeled local demo, scrolling, replay, Back cancellation, disconnected-phone recovery, and phone settings. Emulator screenshots establish layout and control behavior. They do not establish microphone service availability, physical radio throughput, speaker intelligibility, or hardware haptics.
 

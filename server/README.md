@@ -6,7 +6,10 @@
 {"request_id": 1, "prompt": "Why does a compass point north?", "speak": true}
 ```
 
-Use `Authorization: Bearer <installation-token>` and `Content-Type: application/json`. A successful response contains `request_id`, a text answer of at most 240 characters, and either `audio: null` or `{ "pcm_base64": "…", "sample_rate": 8000, "format": "s8" }`. PCM is mono, signed 8-bit, with a maximum of 128,000 bytes. Speech failure preserves the text reply and adds `warning`.
+Questions must contain at least one non-whitespace character and be no longer
+than 400 characters, including surrounding whitespace.
+
+Use `Authorization: Bearer <installation-token>` and `Content-Type: application/json`. A successful response contains `request_id`, a text answer of at most 28 words and 240 characters, and either `audio: null` or `{ "pcm_base64": "…", "sample_rate": 8000, "format": "s8" }`. PCM is mono, signed 8-bit, with a maximum of 128,000 bytes. Speech failure preserves the text reply and adds `warning`.
 
 The caller cannot select upstream URLs, providers, models, system instructions, or a voice. The service uses `gpt-4.1-mini` for replies and `gpt-4o-mini-tts` with the `echo` voice. It does not expose arbitrary proxying or server-side tools.
 

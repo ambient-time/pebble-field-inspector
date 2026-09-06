@@ -1,9 +1,16 @@
 # Watch and phone verification
 
-Verified September 4, 2026 with Pebble SDK 4.33.1 and pebble-tool 5.0.39.
+Automated checks updated September 5, 2026 for 1.0.1 with Pebble SDK 4.33.1
+and pebble-tool 5.0.39. The emulator observations below date to September 4
+and version 1.0.0.
 
-`npm run test:client` passes 11 phone protocol tests and the native audio buffer
-test. The tests cover missing credentials, request IDs, stale responses,
+`npm run test:client` passes 16 phone protocol tests, the native audio buffer
+test, and eight cases compiled from the production outbox-failure callback.
+The recovery patch adds malformed port/token validation and executes the real
+phone entry point against throwing XHR construction, open, header, and send
+operations. Each case checks a safe error and a successful subsequent request.
+The callback cases verify that a stale ACK cannot overwrite a current retry.
+ The tests cover missing credentials, request IDs, stale responses,
 cancellation, bounded Unicode text, malformed audio, retries, exact packet
 acknowledgements, muted and speakerless watches, offline demo, and replay.
 The native test preserves every byte of a 128,000-byte stream through ring

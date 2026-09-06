@@ -14,10 +14,15 @@ function normalizeSettings(raw) {
   }
   var endpoint = String(value('Endpoint', DEFAULT_ENDPOINT)).trim();
   var token = String(value('ClientToken', '')).trim();
+  // PebbleKit JS has no portable URL constructor. Check explicit ports here;
+  // the XHR boundary still handles other URLs the phone cannot open.
+  var endpointParts = /^https:\/\/[^\s\/?#:@]+(?::([0-9]+))?\/[^\s#]*$/.exec(endpoint);
+  var endpointValid = !!endpointParts && !/[\x00-\x1f\x7f-\x9f\\]/.test(endpoint) &&
+    (!endpointParts[1] || (Number(endpointParts[1]) >= 1 && Number(endpointParts[1]) <= 65535));
   return {
     endpoint: endpoint,
     token: token,
-    valid: /^https:\/\/[^\s\/?#:@]+(?::[0-9]+)?\/[^\s#]*$/.test(endpoint) && token.length > 0 && token.length <= 256,
+    valid: endpointValid && token.length > 0 && token.length <= 256 && !/[\x00-\x1f\x7f-\x9f]/.test(token),
     voice: value('VoiceEnabled', true) !== false && value('VoiceEnabled', true) !== 0,
     volume: Math.max(10, Math.min(100, Number(value('Volume', 65)) || 65))
   };
@@ -124,7 +129,7 @@ function createClient(options) {
       if (!cached) return failed(a, 'No saved reply. Select to ask, or try Demo in Help.');
       return deliver(a, cached);
     }
-    if (!cfg.valid) return failed(a, 'Open phone settings and add an installation token.');
+    if (!cfg.valid) return failed(a, 'Check the HTTPS endpoint and installation token in phone settings.');
     if (typeof payload.Prompt !== 'string' || !payload.Prompt.trim() || characterCount(payload.Prompt) > 400) {
       return failed(a, 'Question is empty or too long. Please try again.');
     }

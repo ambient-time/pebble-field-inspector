@@ -103,4 +103,62 @@ test('actual Clay roundtrip keeps credentials on phone and sends no watch messag
     if(previousStorage) Object.defineProperty(global,'localStorage',previousStorage); else delete global.localStorage;
   }
 });
+test('malformed ports and token controls cannot mark phone setup ready',function () {
+  var token='installation-placeholder';
+  ['0','65536','999999','','abc'].forEach(function (port) {
+    var h=setup({Endpoint:'https://example.com:'+port+'/inspect',ClientToken:token});
+    h.client.sync();
+    assert.strictEqual(h.messages[0].Configured,0,'Invalid port '+port);
+    inspect(h,1); assert.strictEqual(h.requests.length,0);
+    assert(/settings/.test(h.messages[1].StatusText));
+  });
+  ['\n','\r','\t','\u0000','\u007f','\u0085'].forEach(function (control) {
+    assert.strictEqual(protocol.normalizeSettings({ClientToken:token+control+'suffix'}).valid,false);
+  });
+  ['1','443','65535'].forEach(function (port) {
+    assert.strictEqual(protocol.normalizeSettings({Endpoint:'https://example.com:'+port+'/inspect',ClientToken:token}).valid,true);
+  });
+  assert.strictEqual(protocol.normalizeSettings({ClientToken:'  '+token+'\n'}).valid,true);
+});
+
+['constructor','open','header','send'].forEach(function (failureStage) {
+  test('actual phone entry point recovers from synchronous XHR '+failureStage+' failure',function () {
+    var vm=require('vm'), fs=require('fs'), path=require('path');
+    var events={}, sent=[], instances=[], stage=failureStage;
+    var privateMarker='private-placeholder-do-not-display';
+    function throwsAt(name) { if(stage===name) throw new Error(privateMarker); }
+    function XHR() { throwsAt('constructor'); instances.push(this); }
+    XHR.prototype.open=function () { throwsAt('open'); };
+    XHR.prototype.setRequestHeader=function () { throwsAt('header'); };
+    XHR.prototype.send=function () { throwsAt('send'); };
+    XHR.prototype.abort=function () { if(this.onerror) this.onerror(); };
+    var context={
+      require:function (id) { return id==='./protocol' ? protocol : id==='./vendor/pebble-clay' ? function () {} : []; },
+      console:{log:function () { throw new Error('Unexpected log output'); }},
+      localStorage:{getItem:function () { return JSON.stringify({ClientToken:'installation-placeholder'}); }},
+      XMLHttpRequest:XHR,
+      Pebble:{addEventListener:function (name,handler) { events[name]=handler; },
+        sendAppMessage:function (packet,done) { sent.push(packet); done(); }}
+    };
+    vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../src/pkjs/index.js'),'utf8'),context);
+    function request(id) { events.appmessage({payload:{RequestType:'inspect',RequestId:id,Prompt:'Test question',SpeakerAvailable:0,Muted:0}}); }
+    assert.doesNotThrow(function () { request(1); });
+    assert.strictEqual(sent.length,1); assert.strictEqual(sent[0].RequestId,1);
+    assert.strictEqual(sent[0].AudioExpected,0); assert(/phone settings/.test(sent[0].StatusText));
+    assert(sent[0].StatusText.length<=100); assert(!JSON.stringify(sent).includes(privateMarker));
+    instances.forEach(function (xhr) {
+      if(xhr.onerror) xhr.onerror();
+      if(xhr.ontimeout) xhr.ontimeout();
+    });
+    assert.strictEqual(sent.length,1,'Late events must not duplicate the error');
+    stage=null;
+    assert.doesNotThrow(function () { request(2); });
+    var recovered=instances[instances.length-1];
+    recovered.status=200;
+    recovered.responseText=JSON.stringify({request_id:2,text:'The next request works.',audio:null});
+    recovered.onload();
+    assert.strictEqual(sent.length,2); assert.strictEqual(sent[1].RequestId,2);
+    assert.strictEqual(sent[1].ResponseText,'The next request works.');
+  });
+});
 console.log(tests+' client protocol tests passed.');

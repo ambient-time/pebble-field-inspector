@@ -281,13 +281,13 @@ static void outbox_sent(DictionaryIterator *iter, void *context) {
   else if (s_request_pending && !s_request_timer) dispatch_request(NULL);
 }
 static void outbox_failed(DictionaryIterator *iter, AppMessageResult reason, void *context) {
+  uint32_t id;
+  // An older turn may fail after Back or replay has started a new request.
+  if (!read_uint(dict_find(iter, MESSAGE_KEY_RequestId), &id) || id != s_request_id) return;
   if (dict_find(iter, MESSAGE_KEY_AudioAck)) {
     uint32_t sequence;
     if (read_uint(dict_find(iter, MESSAGE_KEY_AudioAck), &sequence)) { s_ack_pending = true; s_ack_sequence = sequence; }
-  } else {
-    uint32_t id;
-    if (read_uint(dict_find(iter, MESSAGE_KEY_RequestId), &id) && id == s_request_id && busy()) fail("Phone connection lost. Please try again.");
-  }
+  } else if (busy()) fail("Phone connection lost. Please try again.");
 }
 static void inbox_dropped(AppMessageResult reason, void *context) { if (busy()) fail("Watch message was lost. Please retry."); }
 static void connection_changed(bool connected) { if (!connected && busy()) fail("Phone disconnected. The last text is kept."); }
