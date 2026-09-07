@@ -46,6 +46,9 @@ release. Its placeholder Firebase configuration grants no cloud service access.
 | Android lint | No errors introduced by lab source | Measured: zero errors, six warnings; no lint checks disabled | Passed |
 | APK verifier tests | Reject stock identity and isolation regressions | Measured: 15 tests pass; actual preserved stock APK fails lab verification as expected | Passed |
 | Lab installation | Stock stays installed; lab launches separately | Planned | Not run |
+| Emulator coexistence | Stock and lab install under separate identities | Measured: original five stock APKs and staged lab APK install together on a new Android 16 / API 36.1 ARM64 emulator | Passed, emulator only |
+| Emulator launch and providers | Both apps launch; each connection-state URI responds | Measured: lab cold launch succeeds (2,130 ms); lab provider returns disconnected state; after stopping lab, stock cold launch succeeds (1,175 ms) and stock provider responds | Passed, emulator only |
+| Lab setup identity | Android permission prompt names the lab | Observed: Get Started → Watch opens a prompt naming Pebble Inspector Lab | Passed, emulator only |
 | Current watch firmware/connection | Reread from physical watch | Planned | Not run |
 | Demo, text, speech, replay, stop | Repeatable unchanged 1.0.1 behavior | Planned | Not run |
 | Locked phone / reconnect / mute | Complete or recover without stale playback | Planned | Not run |
@@ -83,3 +86,20 @@ removes those declarations. Ordinary debug/release configuration stays unchanged
 On this Mac, `apkanalyzer` cannot find its build tools. Verification falls back
 to `aapt2` for the actual packaged XML and retains the reader error in the
 artifact metadata. Signature verification uses `apksigner`.
+
+The existing Android emulator image directories lacked their system images. A
+separate `Field_Inspector_API_36_1` emulator uses the newly installed Google APIs
+36.1 ARM64 image; existing emulators were not modified. Installation and launch
+checks used only `emulator-5556`. These results do not establish Bluetooth,
+microphone, speaker, recognition, or pairing recovery on either physical watch.
+
+The lab remained running through startup and its first setup screens, with no
+`AndroidRuntime` fatal exception observed. Its placeholder Firebase key produced
+an authentication error. Hosted login is unavailable with this configuration;
+stock recognition in the lab still needs an available upstream recognition path
+and a hardware check.
+No Firebase account or OpenAI credential was configured for this build.
+
+The cold-launch times above are single smoke-test observations, not performance
+benchmarks or voice-response latency measurements. The companion's staged
+artifact directory retains the emulator screenshots and smoke-test record.
