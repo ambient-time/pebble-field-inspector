@@ -37,6 +37,7 @@ static uint16_t s_pending_size;
 static uint32_t s_pending_sequence;
 static AppTimer *s_pump;
 static bool s_stream_started, s_stream_draining;
+static bool s_tone_test;
 #endif
 
 static void redraw(void) { if (s_canvas) { update_body_layout(); layer_mark_dirty(s_canvas); if (s_body_clip) layer_mark_dirty(s_body_clip); } }
@@ -61,6 +62,7 @@ static void stop_audio(void) {
   if (s_pump) { app_timer_cancel(s_pump); s_pump = NULL; }
   // Update state before stopping: finished callbacks must not revive this turn.
   s_stream_started = s_stream_draining = false;
+  s_tone_test = false;
   s_pending_size = 0;
   memset(&s_audio, 0, sizeof s_audio);
   speaker_stop();
@@ -147,6 +149,14 @@ static void send_ack(uint32_t sequence) {
 
 #ifdef PBL_SPEAKER
 static void audio_finished(SpeakerFinishReason reason, void *context) {
+  if (s_tone_test) {
+    s_tone_test = false;
+    APP_LOG(APP_LOG_LEVEL_INFO, "FieldInspector: native tone finished reason=%d", (int)reason);
+    s_state = STATE_READY;
+    snprintf(s_status, sizeof s_status, "Tone callback: %d. Was it audible?", (int)reason);
+    redraw();
+    return;
+  }
   if (!s_stream_started) return;
   APP_LOG(APP_LOG_LEVEL_INFO, "FieldInspector: audio finished reason=%d bytes=%lu", (int)reason, (unsigned long)s_audio.received);
   bool drained = s_stream_draining;
@@ -170,6 +180,7 @@ static void pump(void *data) {
     } else if (accepted != FI_AUDIO_FULL) { fail("Voice packet was invalid. Please retry."); return; }
   }
   if (!s_stream_started && (s_audio.count >= 4096 || s_audio.ended)) {
+    APP_LOG(APP_LOG_LEVEL_INFO, "FieldInspector: PCM open volume=%u muted=%d buffered=%u", s_volume, speaker_is_muted(), (unsigned)s_audio.count);
     if (!speaker_stream_open(SpeakerPcmFormat_8kHz_8bit, s_volume)) { fail("Speaker unavailable. The text is still here."); return; }
     s_stream_started = true; s_state = STATE_SPEAKING; redraw();
   }
@@ -338,6 +349,19 @@ static void select_click(ClickRecognizerRef r, void *context) { if (s_help) demo
 static void up_click(ClickRecognizerRef r, void *context) { s_scroll -= 36; if (s_scroll < 0) s_scroll = 0; redraw(); }
 static void down_click(ClickRecognizerRef r, void *context) { s_scroll += 36; if (s_scroll > s_scroll_max) s_scroll = s_scroll_max; redraw(); }
 static void up_long(ClickRecognizerRef r, void *context) {
+#ifdef PBL_SPEAKER
+  if (s_help) {
+    cancel_turn(""); s_help = false; s_demo = true;
+    snprintf(s_answer, sizeof s_answer, "SPEAKER CHECK\nTwo-second built-in tone. No phone or audio packets.\n\nBack stops playback.");
+    if (speaker_is_muted() || !s_voice) { fail("Voice muted. Check watch sound settings."); return; }
+    s_tone_test = true; s_state = STATE_SPEAKING;
+    bool started = speaker_play_tone(880, 2000, s_volume, SpeakerWaveformSquare);
+    APP_LOG(APP_LOG_LEVEL_INFO, "FieldInspector: native tone started=%d volume=%u muted=%d", started, s_volume, speaker_is_muted());
+    if (!started) { s_tone_test = false; fail("Built-in tone could not start."); }
+    redraw();
+    return;
+  }
+#endif
   cancel_turn(""); s_help = false; next_request(); send_request("replay", NULL);
 }
 static void down_long(ClickRecognizerRef r, void *context) {
@@ -365,7 +389,7 @@ static GRect body_bounds(GRect bounds) {
   return GRect(inset, body_y, w - 2 * inset, footer_y - body_y - 4);
 }
 static const char *body_text(void) {
-  if (s_help) return "Phone setup:\nOpen this app's settings. Add an installation token.\n\nSelect: offline demo\nHold Up: replay reply\nUp/Down: scroll\nBack: stop or leave\n\nSelect to ask. Speak, then confirm. Replies also stay readable when voice is muted or unavailable.";
+  if (s_help) return "Select: streamed demo\nHold Up: built-in tone (speaker watches)\n\nPhone setup:\nOpen this app's settings. Add an installation token.\n\nOutside Help, hold Up to replay.\nUp/Down: scroll\nBack: stop or leave\n\nSelect to ask. Speak, then confirm.";
   if (s_state == STATE_DICTATING) return "Speak near the watch.\n\nReview the transcript, then Select to send. Back cancels.";
   if (s_notice && s_answer[0]) {
     snprintf(s_notice_text, sizeof s_notice_text, "%s\n\n%s", s_status, s_answer);

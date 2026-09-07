@@ -89,6 +89,16 @@ after a remote app-launch request. Opening Field Inspector and hearing its local
 demo still need physical confirmation. No speaker, recognition, or stock-return
 gate is passed by the installation acknowledgement. Pixel 10 remains uninspected.
 
+The owner subsequently opened the demo but heard no sound. Watch logs record
+four complete 8,000-byte demo deliveries with finish reason 0 (Done), and one
+stopped attempt. This establishes packet delivery and firmware callbacks, not
+audible playback. The speaker gate remains open. A diagnostic build adds a
+two-second, 880 Hz built-in square-wave tone under Help → hold Up, bypassing
+the phone and PCM transport. It respects mute and the configured volume; Back
+stops it. Stream opening now logs volume, mute, and buffered byte count without
+recording questions or credentials. All six targets build; 16 client tests and
+the existing buffer/outbox fixtures pass. The preserved baseline PBW is unchanged.
+
 The first lab build exposed two provider classes missing from Android lint's
 direct dependency view. Adding `libpebble3` to the lab variant resolved both
 errors. Inspection also found stock-owned provider authorities and three obsolete
