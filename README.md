@@ -1,6 +1,12 @@
 # Field Inspector
 
-A small field assistant for Pebble. Press a button, ask a question, and get a short answer on the wrist. Pebble Time 2 and 2 Duo can speak the answer through their speaker. Other supported watches show the same answer as large, high-contrast text.
+A paused field-assistant experiment for Pebble. Press a button, ask a question,
+and read a short answer on the wrist. The source includes experimental speaker
+playback, but the tested Time 2 speech was too choppy and quiet for use.
+
+**Parked September 7, 2026.** The working note sounds, watch interface, transport,
+tests, and companion fork are preserved for possible reuse. No further voice
+development is scheduled. See the [experiment handoff](docs/experiment-handoff.md).
 
 By Luke Steuber.
 
@@ -21,8 +27,9 @@ The demo needs a connected phone, but no installation token, internet connection
 
 For a separate speaker check, open Help and hold Up to play three rising notes
 entirely on the watch. Outside Help, hold Up still replays the last reply.
-Time 2 audio is under investigation: the tested watch reports successful PCM
-delivery but the wearer hears no sound. Audible speech is not yet verified.
+Three-note playback was heard on Time 2. The original 8-bit stream was silent;
+the later 16-bit playback experiment was audible but very choppy and quiet.
+Conversational speech did not meet acceptance.
 
 ## If a mission stalls
 

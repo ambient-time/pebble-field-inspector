@@ -1,6 +1,7 @@
 # Voice experiment device record
 
-Started 2026-09-06. Phase A is in progress. No complete physical voice turn or
+Started 2026-09-06; parked by the owner on 2026-09-07 after speech proved too
+choppy and quiet. Phase A did not pass. No accepted complete physical voice turn or
 stock-pairing restoration is claimed. Historical emulator and relay evidence
 remains in [verification](verification.md) and [VALIDATION.md](../VALIDATION.md).
 
@@ -60,7 +61,7 @@ release. Its placeholder Firebase configuration grants no cloud service access.
 
 | Gate | State | Required next evidence |
 |---|---|---|
-| A: baseline and recovery | Open | Physical watch baseline and stock recovery checks |
+| A: baseline and recovery | Paused; speech rejected | Resume only on owner request; audible-quality and stock recovery checks remain |
 | B: OpenAI microphone routing | Not started | A passes; actual mic transcript, deadline, cancellation, stock routing |
 | C: first Terra voice turn | Not started | B passes; account access and intelligible Time 2 answer |
 | D: direct phone operation | Not started | C passes; relay-unavailable conversation and credential boundary checks |
