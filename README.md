@@ -47,3 +47,9 @@ The installation token grants access only to this bounded question-and-reply ser
 The assistant has no live search or sensor access. It should say when it lacks current information. Short replies and text fallback are deliberate: Bluetooth throughput and a tiny watch speaker limit conversational audio.
 
 See [BUILD.md](BUILD.md) for builds and verification, and [server/README.md](server/README.md) for operating the restricted endpoint.
+
+The separate Pixel 9a voice experiment starts from this 1.0.1 baseline. Its
+[approved plan](docs/voice-experiment-plan.md),
+[setup and recovery guide](docs/inspector-lab-setup.md), and
+[device record](docs/device-validation.md) track the native OpenAI recognition
+and later direct-phone work. Those additions have not passed their hardware gates.
