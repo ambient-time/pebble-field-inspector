@@ -49,7 +49,8 @@ release. Its placeholder Firebase configuration grants no cloud service access.
 | Emulator coexistence | Stock and lab install under separate identities | Measured: original five stock APKs and staged lab APK install together on a new Android 16 / API 36.1 ARM64 emulator | Passed, emulator only |
 | Emulator launch and providers | Both apps launch; each connection-state URI responds | Measured: lab cold launch succeeds (2,130 ms); lab provider returns disconnected state; after stopping lab, stock cold launch succeeds (1,175 ms) and stock provider responds | Passed, emulator only |
 | Lab setup identity | Android permission prompt names the lab | Observed: Get Started → Watch opens a prompt naming Pebble Inspector Lab | Passed, emulator only |
-| Current watch firmware/connection | Reread from physical watch | Planned | Not run |
+| Current watch firmware/connection | Reread from physical watch | Observed: stock Pixel 9a companion reports Pebble 518E / Time 2 Black/Gray connected, firmware 4.36.2, battery 48%; developer connection replies to ping | Passed, physical connection |
+| Baseline installation on Time 2 | Install preserved 1.0.1 PBW | Observed: CLI reports installation succeeded; subsequent screenshot still shows Ping, including after a remote launch request | Installation acknowledged; app launch not verified |
 | Demo, text, speech, replay, stop | Repeatable unchanged 1.0.1 behavior | Planned | Not run |
 | Locked phone / reconnect / mute | Complete or recover without stale playback | Planned | Not run |
 | Stock recognition / notification reply | Recognition succeeds; cancel before sending | Planned | Not run |
@@ -79,8 +80,14 @@ installation. Stock still shows the saved Pebble C5CE / Pebble 2 SE - Black
 Charcoal entry, with status Connecting; its state provider reports no connected
 watch. The lab installs independently, opens its welcome screen, and returns
 disconnected state through its own provider. No phone or watch pairing changed.
-Time 2 availability and the existing Pixel 10 connection still need confirmation
-before the planned handoff.
+After the owner connected Time 2, stock reported Pebble 518E connected and Pebble
+C5CE disconnected. Time 2 now reports firmware 4.36.2, superseding the historical
+4.33.2 record. The lab's provider still reports disconnected. The developer
+connection responds to ping, and installing the preserved 1.0.1 PBW returns
+success. Two subsequent watch screenshots show a blue Ping screen, including
+after a remote app-launch request. Opening Field Inspector and hearing its local
+demo still need physical confirmation. No speaker, recognition, or stock-return
+gate is passed by the installation acknowledgement. Pixel 10 remains uninspected.
 
 The first lab build exposed two provider classes missing from Android lint's
 direct dependency view. Adding `libpebble3` to the lab variant resolved both
