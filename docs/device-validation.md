@@ -99,6 +99,24 @@ stops it. Stream opening now logs volume, mute, and buffered byte count without
 recording questions or credentials. All six targets build; 16 client tests and
 the existing buffer/outbox fixtures pass. The preserved baseline PBW is unchanged.
 
+Later physical logs show successful stock dictation and real relay replies.
+One 30,528-byte reply finished with reason Done, volume 65, and mute false;
+the owner still heard no audio. Another 43,200-byte reply was stopped after
+23,040 bytes arrived. These establish neither OpenAI recognition routing nor
+audible speech. The owner reports that PulseTime tones work on this watch.
+Its source uses `speaker_play_notes` at the same default volume (65). Help's
+comparison test now uses that API with three rising sine notes. Stream completion
+also logs bytes accepted by the speaker and peak signed-PCM magnitude, so silent
+samples can be distinguished from silent output. No audio content is logged.
+
+The radar interface builds on all six targets and was visually checked in the
+Emery emulator. It redraws at 4 Hz while idle and 8 Hz during active work, pauses
+on focus loss, and leaves answer text still. Existing client, buffer, and outbox
+tests pass. The private test package retains the local token bootstrap; that
+credential is absent from source and the ordinary build package. Installation
+through the physical phone reports success. Native-note audibility and PCM
+output remain open physical checks.
+
 The first lab build exposed two provider classes missing from Android lint's
 direct dependency view. Adding `libpebble3` to the lab variant resolved both
 errors. Inspection also found stock-owned provider authorities and three obsolete

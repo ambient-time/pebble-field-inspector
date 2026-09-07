@@ -18,6 +18,9 @@ static uint8_t s_volume = 65;
 static uint32_t s_request_id;
 static char s_answer[TEXT_CAP], s_status[128], s_notice_text[TEXT_CAP + 160];
 static bool s_notice;
+static AppTimer *s_animation;
+static uint16_t s_phase;
+static bool s_focused = true;
 static int16_t s_scroll, s_scroll_max;
 static AppTimer *s_timeout;
 static AppTimer *s_request_timer;
@@ -38,6 +41,8 @@ static uint32_t s_pending_sequence;
 static AppTimer *s_pump;
 static bool s_stream_started, s_stream_draining;
 static bool s_tone_test;
+static uint32_t s_written;
+static uint8_t s_peak;
 #endif
 
 static void redraw(void) { if (s_canvas) { update_body_layout(); layer_mark_dirty(s_canvas); if (s_body_clip) layer_mark_dirty(s_body_clip); } }
@@ -63,6 +68,7 @@ static void stop_audio(void) {
   // Update state before stopping: finished callbacks must not revive this turn.
   s_stream_started = s_stream_draining = false;
   s_tone_test = false;
+  s_written = 0; s_peak = 0;
   s_pending_size = 0;
   memset(&s_audio, 0, sizeof s_audio);
   speaker_stop();
@@ -158,7 +164,7 @@ static void audio_finished(SpeakerFinishReason reason, void *context) {
     return;
   }
   if (!s_stream_started) return;
-  APP_LOG(APP_LOG_LEVEL_INFO, "FieldInspector: audio finished reason=%d bytes=%lu", (int)reason, (unsigned long)s_audio.received);
+  APP_LOG(APP_LOG_LEVEL_INFO, "FieldInspector: audio finished reason=%d received=%lu written=%lu peak=%u", (int)reason, (unsigned long)s_audio.received, (unsigned long)s_written, s_peak);
   bool drained = s_stream_draining;
   s_stream_started = s_stream_draining = false;
   if (reason == SpeakerFinishReasonDone && drained) {
@@ -188,6 +194,14 @@ static void pump(void *data) {
     uint16_t size = fi_audio_contiguous(&s_audio);
     if (size > 512) size = 512;
     uint32_t written = speaker_stream_write(s_audio.bytes + s_audio.read, size);
+    if (written <= size) {
+      for (uint32_t i = 0; i < written; i++) {
+        int sample = (int8_t)s_audio.bytes[s_audio.read + i];
+        unsigned magnitude = sample < 0 ? -sample : sample;
+        if (magnitude > s_peak) s_peak = magnitude;
+      }
+      s_written += written;
+    }
     if (written > size || !fi_audio_consume(&s_audio, written)) { fail("Speaker error. The text is still here."); return; }
   }
   if (s_stream_started && !s_audio.count && s_audio.ended) {
@@ -352,10 +366,17 @@ static void up_long(ClickRecognizerRef r, void *context) {
 #ifdef PBL_SPEAKER
   if (s_help) {
     cancel_turn(""); s_help = false; s_demo = true;
-    snprintf(s_answer, sizeof s_answer, "SPEAKER CHECK\nTwo-second built-in tone. No phone or audio packets.\n\nBack stops playback.");
+    snprintf(s_answer, sizeof s_answer, "SPEAKER CHECK\nThree rising notes using the PulseTime playback API. No phone or audio packets.\n\nBack stops playback.");
     if (speaker_is_muted() || !s_voice) { fail("Voice muted. Check watch sound settings."); return; }
     s_tone_test = true; s_state = STATE_SPEAKING;
-    bool started = speaker_play_tone(880, 2000, s_volume, SpeakerWaveformSquare);
+    static const SpeakerNote notes[] = {
+      {.midi_note=72, .waveform=SpeakerWaveformSine, .duration_ms=400, .velocity=0},
+      {.midi_note=0, .waveform=SpeakerWaveformSine, .duration_ms=150, .velocity=0},
+      {.midi_note=76, .waveform=SpeakerWaveformSine, .duration_ms=400, .velocity=0},
+      {.midi_note=0, .waveform=SpeakerWaveformSine, .duration_ms=150, .velocity=0},
+      {.midi_note=79, .waveform=SpeakerWaveformSine, .duration_ms=650, .velocity=0}
+    };
+    bool started = speaker_play_notes(notes, ARRAY_LENGTH(notes), s_volume);
     APP_LOG(APP_LOG_LEVEL_INFO, "FieldInspector: native tone started=%d volume=%u muted=%d", started, s_volume, speaker_is_muted());
     if (!started) { s_tone_test = false; fail("Built-in tone could not start."); }
     redraw();
@@ -396,9 +417,52 @@ static const char *body_text(void) {
     return s_notice_text;
   }
   if (s_state == STATE_ERROR) return s_status;
-  if (s_state == STATE_WAITING) return "The phone is preparing a short answer.\n\nBack cancels.";
+  if (s_state == STATE_WAITING) return "Working on your question.\nBack cancels.";
   if (s_answer[0]) return s_answer;
-  return s_configured ? "Select: ask\nSpeak, then confirm.\n\nHold Down: help" : "Phone setup needed.\n\nHold Down for Help and an offline demo.";
+  return s_configured ? "Select to ask.\nSpeak, then confirm." : "Hold Down for setup and speaker checks.";
+}
+static GColor instrument_ink(void) { return PBL_IF_COLOR_ELSE(GColorCyan, GColorWhite); }
+static int art_height(void) {
+  if (s_help || s_answer[0] || s_state == STATE_ERROR || s_state == STATE_DICTATING) return 0;
+  return layer_get_bounds(s_canvas).size.h >= 200 ? 90 : 56;
+}
+static void draw_radar(GContext *ctx, int w, int height) {
+  int r = height / 2 - 5;
+  GPoint c = GPoint(w / 2, height / 2);
+  graphics_context_set_stroke_color(ctx, PBL_IF_COLOR_ELSE(GColorDarkGray, GColorWhite));
+  graphics_context_set_stroke_width(ctx, 1);
+  graphics_draw_circle(ctx, c, r);
+  graphics_draw_circle(ctx, c, r * 2 / 3);
+  graphics_draw_circle(ctx, c, r / 3);
+  graphics_draw_line(ctx, GPoint(c.x-r-3,c.y), GPoint(c.x+r+3,c.y));
+  graphics_draw_line(ctx, GPoint(c.x,c.y-r-3), GPoint(c.x,c.y+r+3));
+  int32_t angle = (s_phase % 48) * TRIG_MAX_ANGLE / 48;
+  GPoint tip = GPoint(c.x + sin_lookup(angle)*r/TRIG_MAX_RATIO,
+                     c.y - cos_lookup(angle)*r/TRIG_MAX_RATIO);
+  graphics_context_set_stroke_color(ctx, instrument_ink());
+  graphics_draw_line(ctx, c, tip);
+  graphics_context_set_fill_color(ctx, instrument_ink());
+  graphics_fill_circle(ctx, tip, 2);
+  for (int i=0; i<3; i++) {
+    int32_t a = (i*17+7)*TRIG_MAX_ANGLE/48;
+    int rr = r*(i+2)/5;
+    GPoint p = GPoint(c.x+sin_lookup(a)*rr/TRIG_MAX_RATIO, c.y-cos_lookup(a)*rr/TRIG_MAX_RATIO);
+    graphics_context_set_fill_color(ctx, PBL_IF_COLOR_ELSE(GColorChromeYellow, GColorWhite));
+    graphics_fill_circle(ctx,p, ((s_phase+i*13)%48)<8 ? 3 : 1);
+  }
+}
+static void animate(void *context) {
+  s_animation = NULL;
+  if (!s_canvas || !s_focused) return;
+  s_phase++;
+  layer_mark_dirty(s_canvas);
+  if (s_body_clip && art_height()) layer_mark_dirty(s_body_clip);
+  s_animation = app_timer_register(busy() ? 125 : 250, animate, NULL);
+}
+static void focus_changed(bool focused) {
+  s_focused = focused;
+  if (!focused && s_animation) { app_timer_cancel(s_animation); s_animation = NULL; }
+  if (focused && !s_animation) animate(NULL);
 }
 static GFont body_font(void) {
   return fonts_get_system_font(layer_get_bounds(s_canvas).size.h >= 200 ? FONT_KEY_GOTHIC_24_BOLD : FONT_KEY_GOTHIC_18_BOLD);
@@ -408,12 +472,15 @@ static void update_body_layout(void) {
   GRect box = body_bounds(layer_get_unobstructed_bounds(s_canvas));
   layer_set_frame(s_body_clip, box);
   GSize size = graphics_text_layout_get_content_size(body_text(), body_font(), GRect(0,0,box.size.w,2000), GTextOverflowModeWordWrap, GTextAlignmentLeft);
-  s_scroll_max = size.h > box.size.h ? size.h - box.size.h : 0;
+  int content_height = size.h + art_height();
+  s_scroll_max = content_height > box.size.h ? content_height - box.size.h : 0;
   if (s_scroll > s_scroll_max) s_scroll = s_scroll_max;
 }
 static void draw_body(Layer *layer, GContext *ctx) {
-  graphics_context_set_text_color(ctx, GColorBlack);
-  graphics_draw_text(ctx, body_text(), body_font(), GRect(0,-s_scroll,layer_get_bounds(layer).size.w,2000),
+  int art = art_height();
+  if (art && !s_scroll) draw_radar(ctx, layer_get_bounds(layer).size.w, art);
+  graphics_context_set_text_color(ctx, GColorWhite);
+  graphics_draw_text(ctx, body_text(), body_font(), GRect(0,art-s_scroll,layer_get_bounds(layer).size.w,2000),
     GTextOverflowModeWordWrap, GTextAlignmentLeft, NULL);
 }
 static void draw(Layer *layer, GContext *ctx) {
@@ -422,15 +489,21 @@ static void draw(Layer *layer, GContext *ctx) {
   bool round = PBL_IF_ROUND_ELSE(true, false), big = h >= 200;
   int inset = round ? w / 7 : 6, top = round ? h / 10 : 2;
   int footer_y = h - (round ? h / 9 : 2) - (big ? 48 : 36);
-  graphics_context_set_fill_color(ctx, GColorWhite);
+  graphics_context_set_fill_color(ctx, GColorBlack);
   graphics_fill_rect(ctx, layer_get_bounds(layer), 0, GCornerNone);
-  graphics_context_set_text_color(ctx, GColorBlack);
+  graphics_context_set_text_color(ctx, instrument_ink());
   const char *heading = s_help ? "FIELD MANUAL" : s_demo ? "OFFLINE DEMO" :
     s_state == STATE_DICTATING ? "LISTENING" : s_state == STATE_WAITING ? "CONTACTING" :
-    s_state == STATE_LOADING ? "LOADING VOICE" : s_state == STATE_SPEAKING ? "SPEAKING" :
+    s_state == STATE_LOADING ? "LOADING VOICE" : s_state == STATE_SPEAKING ? "AUDIO OUTPUT" :
     s_state == STATE_ERROR ? "TRY AGAIN" : s_answer[0] ? "FIELD REPORT" : "FIELD INSPECTOR";
   graphics_draw_text(ctx, heading, fonts_get_system_font(big ? FONT_KEY_GOTHIC_24_BOLD : FONT_KEY_GOTHIC_18_BOLD),
     GRect(inset, top, w - 2 * inset, big ? 30 : 22), GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter, NULL);
+  graphics_context_set_stroke_color(ctx, instrument_ink());
+  graphics_draw_line(ctx, GPoint(inset,top+(big?32:24)), GPoint(w-inset,top+(big?32:24)));
+  graphics_context_set_fill_color(ctx, PBL_IF_COLOR_ELSE(GColorChromeYellow, GColorWhite));
+  int scanner = inset + (s_phase % 24)*(w-2*inset-10)/23;
+  graphics_fill_rect(ctx,GRect(scanner,top+(big?31:23),10,3),0,GCornerNone);
+  graphics_context_set_text_color(ctx, GColorWhite);
   const char *footer = s_help ? "Select: demo tone" : busy() ? "Back: stop" : "Select: ask";
   graphics_draw_text(ctx, footer, fonts_get_system_font(big ? FONT_KEY_GOTHIC_18_BOLD : FONT_KEY_GOTHIC_14_BOLD),
     GRect(inset, footer_y, w - 2 * inset, big ? 23 : 18), GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter, NULL);
@@ -448,6 +521,7 @@ static void window_load(Window *window) {
   update_body_layout();
 }
 static void window_unload(Window *window) {
+  if (s_animation) { app_timer_cancel(s_animation); s_animation = NULL; }
   layer_destroy(s_body_clip); s_body_clip = NULL; layer_destroy(s_canvas); s_canvas = NULL;
 }
 static void init(void) {
@@ -456,7 +530,7 @@ static void init(void) {
   s_configured = persist_exists(PERSIST_CONFIGURED) && persist_read_bool(PERSIST_CONFIGURED);
   if (persist_exists(PERSIST_VOICE)) s_voice = persist_read_bool(PERSIST_VOICE);
   if (persist_exists(PERSIST_VOLUME)) s_volume = persist_read_int(PERSIST_VOLUME);
-  s_window = window_create(); window_set_background_color(s_window, GColorWhite);
+  s_window = window_create(); window_set_background_color(s_window, GColorBlack);
   window_set_window_handlers(s_window, (WindowHandlers){.load=window_load,.unload=window_unload});
   window_set_click_config_provider(s_window, clicks);
   app_message_register_inbox_received(inbox);
@@ -469,11 +543,15 @@ static void init(void) {
   speaker_set_finish_callback(audio_finished, NULL);
 #endif
   window_stack_push(s_window, true);
+  app_focus_service_subscribe(focus_changed);
+  animate(NULL);
   DictionaryIterator *iter;
   if (app_message_outbox_begin(&iter) == APP_MSG_OK) { dict_write_cstring(iter, MESSAGE_KEY_RequestType, "ready"); app_message_outbox_send(); }
 }
 static void deinit(void) {
   light_enable(false);
+  app_focus_service_unsubscribe();
+  if (s_animation) { app_timer_cancel(s_animation); s_animation = NULL; }
   if (s_request_timer) app_timer_cancel(s_request_timer);
   clear_timeout(); stop_audio(); send_cancel();
 #ifdef PBL_MICROPHONE

@@ -6,6 +6,8 @@ By Luke Steuber.
 
 The backlight stays on while Field Inspector is open and returns to automatic
 control when the app exits.
+The idle screen has a sweeping radar dial. A moving status line accompanies
+requests; answer text stays still. Animation pauses when the app loses focus.
 
 ## First mission
 
@@ -16,6 +18,11 @@ control when the app exits.
 5. Hold Up to replay the last reply. The phone keeps it only for the current companion session; after a restart, ask again or try the demo.
 
 The demo needs a connected phone, but no installation token, internet connection, or model request. It sends no question to a server. On speaker-equipped watches it plays a synthetic tone, not speech. A successful demo checks the watch/phone path; it does not establish that dictation or the endpoint is ready.
+
+For a separate speaker check, open Help and hold Up to play three rising notes
+entirely on the watch. Outside Help, hold Up still replays the last reply.
+Time 2 audio is under investigation: the tested watch reports successful PCM
+delivery but the wearer hears no sound. Audible speech is not yet verified.
 
 ## If a mission stalls
 
