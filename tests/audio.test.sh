@@ -5,6 +5,8 @@ FI_TEST_DIR=$(mktemp -d "${TMPDIR:-/tmp}/field-inspector-audio.XXXXXX")
 trap 'rm -rf "$FI_TEST_DIR"' EXIT
 "${CC:-cc}" -std=c99 -Wall -Wextra -Werror -I "$FI_ROOT/src/c" "$FI_ROOT/tests/audio.test.c" -o "$FI_TEST_DIR/audio-test"
 "$FI_TEST_DIR/audio-test"
+"${CC:-cc}" -std=c99 -Wall -Wextra -Werror -I "$FI_ROOT/src/c" "$FI_ROOT/tests/pcm-output.test.c" -o "$FI_TEST_DIR/pcm-output-test"
+"$FI_TEST_DIR/pcm-output-test"
 python3 - "$FI_ROOT/src/c/main.c" "$FI_TEST_DIR/outbox_failed.inc" <<'PY'
 from pathlib import Path
 import sys

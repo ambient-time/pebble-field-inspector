@@ -117,6 +117,17 @@ credential is absent from source and the ordinary build package. Installation
 through the physical phone reports success. Native-note audibility and PCM
 output remain open physical checks.
 
+On September 7, the owner confirmed hearing Field Inspector's three rising
+notes. The note-sequence path is now audibly verified. A preceding PCM reply
+logged 48,768 received and written bytes, peak magnitude 62, and finish Done,
+without audible output. The next controlled experiment expands the same signed
+8-bit transport samples to 16 kHz/16-bit on the watch, repeating each sample
+twice. It adds a bounded 2 KB staging buffer and retains partially written output
+until accepted. The phone codec, packets, and prebuffer stay unchanged. Tests
+verify all 256 input values, capacity rejection, duration ratio, and continuity
+across packet boundaries. This is a playback-format experiment, not a confirmed
+fix or a change to the approved transport architecture.
+
 The first lab build exposed two provider classes missing from Android lint's
 direct dependency view. Adding `libpebble3` to the lab variant resolved both
 errors. Inspection also found stock-owned provider authorities and three obsolete

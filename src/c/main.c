@@ -1,6 +1,7 @@
 // Field Inspector — Luke Steuber. Button-led dictation and readable replies.
 #include <pebble.h>
 #include "audio_buffer.h"
+#include "pcm_output.h"
 #define PERSIST_REQUEST_ID 1
 #define PERSIST_CONFIGURED 2
 #define PERSIST_VOICE 3
@@ -43,6 +44,8 @@ static bool s_stream_started, s_stream_draining;
 static bool s_tone_test;
 static uint32_t s_written;
 static uint8_t s_peak;
+static uint8_t s_pcm[FI_AUDIO_CHUNK * 4];
+static uint16_t s_pcm_size, s_pcm_offset;
 #endif
 
 static void redraw(void) { if (s_canvas) { update_body_layout(); layer_mark_dirty(s_canvas); if (s_body_clip) layer_mark_dirty(s_body_clip); } }
@@ -69,6 +72,7 @@ static void stop_audio(void) {
   s_stream_started = s_stream_draining = false;
   s_tone_test = false;
   s_written = 0; s_peak = 0;
+  s_pcm_size = s_pcm_offset = 0;
   s_pending_size = 0;
   memset(&s_audio, 0, sizeof s_audio);
   speaker_stop();
@@ -186,25 +190,31 @@ static void pump(void *data) {
     } else if (accepted != FI_AUDIO_FULL) { fail("Voice packet was invalid. Please retry."); return; }
   }
   if (!s_stream_started && (s_audio.count >= 4096 || s_audio.ended)) {
-    APP_LOG(APP_LOG_LEVEL_INFO, "FieldInspector: PCM open volume=%u muted=%d buffered=%u", s_volume, speaker_is_muted(), (unsigned)s_audio.count);
-    if (!speaker_stream_open(SpeakerPcmFormat_8kHz_8bit, s_volume)) { fail("Speaker unavailable. The text is still here."); return; }
+    APP_LOG(APP_LOG_LEVEL_INFO, "FieldInspector: PCM16/16k open volume=%u muted=%d buffered=%u", s_volume, speaker_is_muted(), (unsigned)s_audio.count);
+    if (!speaker_stream_open(SpeakerPcmFormat_16kHz_16bit, s_volume)) { fail("Speaker unavailable. The text is still here."); return; }
     s_stream_started = true; s_state = STATE_SPEAKING; redraw();
   }
-  if (s_stream_started && s_audio.count) {
+  if (s_stream_started && !s_pcm_size && s_audio.count) {
     uint16_t size = fi_audio_contiguous(&s_audio);
     if (size > 512) size = 512;
-    uint32_t written = speaker_stream_write(s_audio.bytes + s_audio.read, size);
-    if (written <= size) {
-      for (uint32_t i = 0; i < written; i++) {
-        int sample = (int8_t)s_audio.bytes[s_audio.read + i];
-        unsigned magnitude = sample < 0 ? -sample : sample;
-        if (magnitude > s_peak) s_peak = magnitude;
-      }
-      s_written += written;
+    s_pcm_size = fi_pcm_expand(s_audio.bytes + s_audio.read, size, s_pcm, sizeof s_pcm);
+    s_pcm_offset = 0;
+    for (uint32_t i = 0; i < size; i++) {
+      int sample = (int8_t)s_audio.bytes[s_audio.read + i];
+      unsigned magnitude = sample < 0 ? -sample : sample;
+      if (magnitude > s_peak) s_peak = magnitude;
     }
-    if (written > size || !fi_audio_consume(&s_audio, written)) { fail("Speaker error. The text is still here."); return; }
+    if (!s_pcm_size || !fi_audio_consume(&s_audio, size)) { fail("Speaker conversion failed. Text is still here."); return; }
   }
-  if (s_stream_started && !s_audio.count && s_audio.ended) {
+  if (s_stream_started && s_pcm_size) {
+    uint32_t remaining = s_pcm_size - s_pcm_offset;
+    uint32_t written = speaker_stream_write(s_pcm + s_pcm_offset, remaining);
+    if (written > remaining) { fail("Speaker error. The text is still here."); return; }
+    s_written += written;
+    s_pcm_offset += written;
+    if (s_pcm_offset == s_pcm_size) s_pcm_size = s_pcm_offset = 0;
+  }
+  if (s_stream_started && !s_audio.count && !s_pcm_size && s_audio.ended) {
     s_stream_draining = true;
     speaker_stream_close();
     return;
