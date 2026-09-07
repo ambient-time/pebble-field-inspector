@@ -45,7 +45,7 @@ release. Its placeholder Firebase configuration grants no cloud service access.
 | Lab APK identity/build | Separate signed package, launcher label, isolated authorities | Measured: clean-commit staging succeeds; APK signature, six lab-scoped authorities, permission declarations, component names, and packaged backup/transfer exclusions verify | Passed |
 | Android lint | No errors introduced by lab source | Measured: zero errors, six warnings; no lint checks disabled | Passed |
 | APK verifier tests | Reject stock identity and isolation regressions | Measured: 15 tests pass; actual preserved stock APK fails lab verification as expected | Passed |
-| Lab installation | Stock stays installed; lab launches separately | Planned | Not run |
+| Lab installation | Stock stays installed; lab launches separately | Measured: verified APK installs successfully on authorized Pixel 9a; both package IDs remain installed; lab cold launch succeeds (1,708 ms), welcome screen renders, and its provider responds | Passed, physical phone |
 | Emulator coexistence | Stock and lab install under separate identities | Measured: original five stock APKs and staged lab APK install together on a new Android 16 / API 36.1 ARM64 emulator | Passed, emulator only |
 | Emulator launch and providers | Both apps launch; each connection-state URI responds | Measured: lab cold launch succeeds (2,130 ms); lab provider returns disconnected state; after stopping lab, stock cold launch succeeds (1,175 ms) and stock provider responds | Passed, emulator only |
 | Lab setup identity | Android permission prompt names the lab | Observed: Get Started → Watch opens a prompt naming Pebble Inspector Lab | Passed, emulator only |
@@ -59,7 +59,7 @@ release. Its placeholder Firebase configuration grants no cloud service access.
 
 | Gate | State | Required next evidence |
 |---|---|---|
-| A: baseline and recovery | Open | Pixel 9a lab installation and physical baseline/recovery checks |
+| A: baseline and recovery | Open | Physical watch baseline and stock recovery checks |
 | B: OpenAI microphone routing | Not started | A passes; actual mic transcript, deadline, cancellation, stock routing |
 | C: first Terra voice turn | Not started | B passes; account access and intelligible Time 2 answer |
 | D: direct phone operation | Not started | C passes; relay-unavailable conversation and credential boundary checks |
@@ -72,10 +72,15 @@ timestamped measurements here as hardware checks complete.
 
 ## Findings and next check
 
-Pixel 9a was authorized over USB, but remained locked during the first inspection.
-It later disappeared from both USB ADB and mDNS discovery. No lab package was
-installed on it, and no phone or watch pairing was changed. Reconnect and unlock
-Pixel 9a, then inspect its stock watch connection before the planned handoff.
+Pixel 9a was authorized over USB, remained locked during the first inspection,
+then disconnected. After the owner reconnected it, ADB confirmed the same Pixel
+9a serial and an unlocked screen. The staged APK's checksum matched before
+installation. Stock still shows the saved Pebble C5CE / Pebble 2 SE - Black
+Charcoal entry, with status Connecting; its state provider reports no connected
+watch. The lab installs independently, opens its welcome screen, and returns
+disconnected state through its own provider. No phone or watch pairing changed.
+Time 2 availability and the existing Pixel 10 connection still need confirmation
+before the planned handoff.
 
 The first lab build exposed two provider classes missing from Android lint's
 direct dependency view. Adding `libpebble3` to the lab variant resolved both
