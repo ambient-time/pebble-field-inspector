@@ -451,6 +451,7 @@ static void window_unload(Window *window) {
   layer_destroy(s_body_clip); s_body_clip = NULL; layer_destroy(s_canvas); s_canvas = NULL;
 }
 static void init(void) {
+  light_enable(true);
   s_request_id = persist_exists(PERSIST_REQUEST_ID) ? (uint32_t)persist_read_int(PERSIST_REQUEST_ID) : (uint32_t)time(NULL);
   s_configured = persist_exists(PERSIST_CONFIGURED) && persist_read_bool(PERSIST_CONFIGURED);
   if (persist_exists(PERSIST_VOICE)) s_voice = persist_read_bool(PERSIST_VOICE);
@@ -472,6 +473,7 @@ static void init(void) {
   if (app_message_outbox_begin(&iter) == APP_MSG_OK) { dict_write_cstring(iter, MESSAGE_KEY_RequestType, "ready"); app_message_outbox_send(); }
 }
 static void deinit(void) {
+  light_enable(false);
   if (s_request_timer) app_timer_cancel(s_request_timer);
   clear_timeout(); stop_audio(); send_cancel();
 #ifdef PBL_MICROPHONE

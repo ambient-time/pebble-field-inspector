@@ -4,6 +4,9 @@ A small field assistant for Pebble. Press a button, ask a question, and get a sh
 
 By Luke Steuber.
 
+The backlight stays on while Field Inspector is open and returns to automatic
+control when the app exits.
+
 ## First mission
 
 1. Install `field-inspector.pbw` using the paired Pebble phone app. Keep the phone connected.
