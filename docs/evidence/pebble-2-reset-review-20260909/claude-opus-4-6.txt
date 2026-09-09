@@ -1,0 +1,56 @@
+# Independent Review: Pebble 2 Settings-Wipe Incident
+
+## 1. Ranked Findings
+
+**Finding 1: Unbounded recursive stack growth in `next_snapshot` (released binary)**
+*Source:* `src/c/main.c:154` — original `next_snapshot` called itself for each empty batch. With all sources disabled, 20 recursive calls × ≥232 bytes per frame ≥ 4,640 bytes of stack growth on a platform with ~8 KB app stack.
+*Confidence:* **Confirmed defect.** Reproduced via host harness (single-frame assertion failure), emulator crash, and disassembly. The corrected code (lines 157–232) replaces recursion with a `while` loop.
+*Relationship to reported wipe:* This causes a watchapp crash/exit, not a settings wipe. The emulator showed return to system watchface, not setup screen. **This defect alone does not explain the owner's report.**
+
+**Finding 2: BlobDB clear-on-first-connection or unfaithful reconnection clears app databases**
+*Source:* `BlobDB.kt:267-279` — when `unfaithful || !previouslyConnected`, the companion iterates `BlobDatabase.entries` and sends `ClearCommand` for every database where `sendClear == true`. Per `GenerateRoomEntity.kt:19-38`, this includes App(2), AppConfigs(9), HealthParams(7), Notification(4), Pin(1), Reminder(3), and others. WatchPrefs(12) explicitly has `sendClear = false`.
+*Confidence:* **Evidence-supported hypothesis.** This is a real code path that bulk-clears watch databases, but we lack evidence it fired during this incident. If the companion treated a reconnection as first-connection (e.g., cleared local data, new app install, or the watch set `isUnfaithful`), this would erase apps, configurations, and health parameters — potentially appearing as a "return to setup" if the active watchface was removed. However, PebbleOS firmware source (`endpoint.c`, `fw_reset.c`) confirms BlobDB clear ≠ factory reset: it flushes individual databases, not NVRAM/settings/language/Bluetooth pairing. **The owner's "return to setup" could reflect loss of apps and configurations rather than true factory reset.**
+*Missing evidence:* No device logs, no packet capture from the incident, unknown `isUnfaithful` state, unknown `previouslyConnected` value.
+
+**Finding 3: Installer race — sideload launches before BlobDB sync completes**
+*Source:* `Locker.kt:254-289` — `sideloadApp` calls `insertOrReplaceAndOrder` (line 278) *after* starting the async task that waits for `existsOnWatch` (lines 263-273). The `loadOnWatch=false` parameter in `AndroidSignalStation.kt:317` avoids this specific race, but `launchWatch` at line 320 proceeds immediately after sideload returns `true`, without calling `waitUntilAppSyncedToWatch`. If BlobDB sync is still processing the app entry, launch could target a not-yet-installed app.
+*Confidence:* **Code-level concern, unreproduc in emulator.** The emulator comparison showed the acknowledgement preceded launch. On real BLE with latency, the ordering may differ. This is a timing issue, not a reset cause.
+
+**Finding 4: Recovery-mode auto-firmware-update on onboarding screen**
+*Source:* `WatchOnboardingScreen.kt:194-199` and `TransportConnector.kt:242-256`. If a watch enters recovery mode (running PRF, missing PRF, or firmware <3.0), the onboarding screen automatically starts a firmware update. `FirmwareUpdater.kt:169-189` separately auto-resumes interrupted updates.
+*Confidence:* **Speculative for this incident.** No evidence the watch entered recovery mode. The emulator explicitly lacks a recovery slot and the companion exempts socket watches from the missing-PRF check (line 241). If a stack overflow on the physical watch somehow corrupted firmware state or caused a watchdog reset into PRF, this pathway could trigger unexpected firmware behavior — but this chains two unconfirmed events.
+
+**Finding 5: No factory-reset packet in any code path triggered by Signal Station**
+*Source:* `Reset.kt:19` defines `FactoryReset(0xfeu)`. `SystemService.kt:166-170` wraps it. `AndroidSignalStation.kt` does not call `factoryReset()`. The investigation's emulator comparison recorded zero reset-endpoint packets across 127 phone-to-watch messages. The companion's explicit factory-reset call is gated behind a debugging menu confirmation dialog.
+*Confidence:* **High confidence that Signal Station's code paths do not send a factory reset command.** Cannot exclude firmware-level faults or third-party interactions.
+
+## 2. What the Emulator Comparison Proves and Does Not Prove
+
+**Proves:**
+- The released PBW crashes (exits to system) when a capture command is sent with no enabled sources — stack overflow confirmed
+- The corrected PBW survives the same capture scenario
+- The companion's install→launch sequence sends only app executable (0x85) and app resource (0x84) PutBytes objects — no firmware, no recovery, no reset-endpoint packets (0 of 127)
+- BlobDB synchronization completes without incident on a fresh emulator pairing
+
+**Does not prove:**
+- That the emulator's SDK v4.3 firmware matches the owner's unknown physical firmware
+- That BLE transport behavior matches socket transport (no PPOG, no real pairing, no radio-level faults)
+- That the `isUnfaithful` flag or `previouslyConnected` state matched the owner's device — the emulator started from a known-clean state
+- That the recovery-mode firmware updater cannot fire on real hardware — the emulator has no recovery slot
+- That the installer race cannot occur under real BLE latency
+- Whether the app crash on physical hardware produces the same graceful exit or a more severe fault (watchdog, corrupted state)
+- **That the reported "return to setup" did not occur** — the emulator showed no wipe, but this is a different environment
+
+## 3. Safest Next 3 Isolated Tests
+
+1. **Retrieve existing watch logs without reinstalling.** Connect to the owner's recovered watch via the companion's log dump service (`logDumpService` in TransportConnector.kt:238) or developer connection. Collect system logs and any crash records from the period around the incident. This is read-only and does not install any watchapp. Purpose: determine whether a crash, recovery boot, or BlobDB clear was logged.
+
+2. **Emulator BlobDB-clear behavior audit.** On a fresh Diorite emulator pair, manually set `isUnfaithful = true` or clear the companion's `lastConnected` record for the emulator identifier, then reconnect. Observe which databases are cleared, whether the watch returns to setup, and what the user-visible state is afterward. Compare against a `previouslyConnected = true, unfaithful = false` baseline. Purpose: determine whether BlobDB bulk clear can produce the "return to setup" appearance without a factory reset.
+
+3. **Stack overflow severity characterization on emulator.** Trigger the released PBW's recursive crash with GDB attached to the Diorite emulator. Capture the exact fault type (stack guard, bus error, segfault), post-crash memory state, and whether the system's crash handler preserves clean state or could corrupt adjacent memory. Purpose: determine whether this class of app crash can cascade beyond app exit on the target firmware.
+
+## 4. Companion Architecture / First-Pair Synchronization as Relevant Risk
+
+**Yes, this is a relevant risk, and the existing analysis undersells it.**
+
+The BlobDB initialization path (`BlobDB.kt:205-279`) is the most plausible mechanism for the reported symptom that does not require a firmware fault. The conditions `unfaithful || !previouslyConnected` trigger bulk database clearing on the *watch*. This is not a factory reset — WatchPrefs is exempt, Bluetooth pairing survives, and NVRAM is untouched — but it removes all apps (including the active watchface), app configurations, health parameters, notifications, pins, and reminders. On a Pebble 2, losing the active watchface and all apps could plausibly present as "return to setup" to a non-technical owner, especially if the companion then shows the onboarding screen (which `WatchOnboardingScreen` does for devices without certain state).

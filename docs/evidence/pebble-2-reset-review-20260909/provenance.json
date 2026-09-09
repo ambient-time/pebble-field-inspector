@@ -1,0 +1,32 @@
+{
+  "date": "2026-09-09",
+  "transport": "craft-ask CLI",
+  "scope": "Same bounded incident report, evidence summary and source excerpts; no device access or credentials supplied",
+  "watch_source": "55a7b79",
+  "companion_source": "b60aa09dccb0a62f866b48217d2c7bd77971ee48",
+  "input_sha256": "3036b5c7474167e62a43d7ff09ce79b1831204b11b040dc1f25b6074c677ae8f",
+  "reviews": [
+    {
+      "provider": "xai",
+      "model": "grok-4.5",
+      "exit_code": 0,
+      "file": "grok-4.5.txt"
+    },
+    {
+      "provider": "anthropic",
+      "model": "claude-opus-4-6",
+      "exit_code": 0,
+      "file": "claude-opus-4-6.txt",
+      "limitation": "Captured answer ends in architecture section; no separate release recommendation was returned."
+    }
+  ],
+  "unsuccessful_attempts": [
+    "anthropic/claude-opus-5 via craft-ask: HTTP 500",
+    "claude-opus-5-thinking-high via cursor-agent: named models unavailable on account",
+    "anthropic default claude-opus-5 via craft-ask: empty content"
+  ],
+  "files": {
+    "grok-4.5.txt": "61b17d4706c52a87b63990a2cadd609cc7e0163275add64748606be3945c0eab",
+    "claude-opus-4-6.txt": "026e08ab1d0909fef0b9f52bbf699455fdfa181dcaf420ef57106797f6cc94bb"
+  }
+}
