@@ -7,7 +7,7 @@ function utf8Bytes(s) {
 }
 function requestId(id) { return typeof id === 'number' && id > 0 && id <= 2147483647 && Math.floor(id) === id; }
 function createClient(options) {
-  var active = null, generation = 0;
+  var active = null, generation = 0, reviewedIds = [];
   var later = options.setTimer || setTimeout, clear = options.clearTimer || clearTimeout;
   function send(packet, done, failed) {
     var owner = generation;
@@ -106,6 +106,24 @@ function createClient(options) {
         }
         return;
       }
+      if (command && command.kind === 'review' && requestId(command.request_id)) {
+        // The phone retains the original draft; the watch confirms only this bound ID.
+        if ((active && active.id === command.request_id) || reviewedIds.indexOf(command.request_id) >= 0) return;
+        if (typeof command.prompt !== 'string' || !command.prompt.trim() || utf8Bytes(command.prompt) > 400 ||
+            command.prompt.indexOf('\0') >= 0 || typeof command.review_context !== 'string' ||
+            !command.review_context.trim() || utf8Bytes(command.review_context) > 350 || command.review_context.indexOf('\0') >= 0) return;
+        reviewedIds.push(command.request_id);
+        if (reviewedIds.length > 64) reviewedIds.shift();
+        var review = attach(command.request_id);
+        review.reviewing = true;
+        send({RequestId:review.id, Command:'review', Prompt:command.prompt, ResponseText:command.review_context},
+          function () {}, function () { if (valid(review)) { cancel(); send({RequestId:review.id, Command:'cancel'}); } });
+        review.timer = later(function () {
+          if (!valid(review) || !review.reviewing) return;
+          cancel(); send({RequestId:review.id, Command:'cancel'});
+        }, 100000);
+        return;
+      }
       if (!command || ['survey','capture','record','ask'].indexOf(command.kind) < 0 || !requestId(command.request_id)) return;
       var already = active && active.id === command.request_id;
       var a = attach(command.request_id);
@@ -122,6 +140,18 @@ function createClient(options) {
       if (p.RequestType === 'settings') return native('POST', 'settings', {});
       if (!requestId(p.RequestId)) return;
       if (p.RequestType === 'cancel') { if (active && active.id === p.RequestId) cancel(); return; }
+      if (p.RequestType === 'confirm-wake') {
+        var review = active;
+        if (!review || review.id !== p.RequestId || !review.reviewing || review.terminal) return;
+        review.reviewing = false; // Claim before sending; repeated button packets cannot bill twice.
+        if (review.timer) clear(review.timer);
+        review.abort = native('POST', 'confirm-wake', {request_id:review.id}, function (err) {
+          if (!valid(review)) return;
+          if (err) return error(review, err);
+          poll(review);
+        });
+        return;
+      }
       if (p.TextAck !== undefined) {
         var a = active;
         if (!a || a.id !== p.RequestId || !a.text || a.delivered || a.committing) return;
@@ -130,7 +160,7 @@ function createClient(options) {
         return acknowledge(a, 1);
       }
       if (p.Snapshot !== undefined || p.RequestType === 'watch-data') {
-        if (!active || active.id !== p.RequestId || active.terminal) return;
+        if (!active || active.id !== p.RequestId || active.terminal || active.reviewing) return;
         var observations;
         try { observations = p.Snapshot ? JSON.parse(p.Snapshot) : []; } catch (_) { return error(active, 'Invalid watch readings.'); }
         if (!Array.isArray(observations) || observations.length > 12) return error(active, 'Invalid watch readings.');

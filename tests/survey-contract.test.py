@@ -42,23 +42,29 @@ print('PASS preserved message IDs, text-only build, and sleep episode contract')
 # Compile the real button handlers against narrow platform stubs: home shortcuts
 # must not become collection/provider actions while reading a saved record.
 handlers = source[source.index('static void local_action('):source.index('static void clicks(')]
+request_helper = source[source.index('static void request('):source.index('static void retry_flush(')]
 program = r'''#include <assert.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
 typedef void *ClickRecognizerRef;
-enum { VIEW_MENU, VIEW_READER, VIEW_HELP, VIEW_WAIT, VIEW_DICTATION, VIEW_HISTORY };
+enum { VIEW_MENU, VIEW_READER, VIEW_HELP, VIEW_WAIT, VIEW_DICTATION, VIEW_HISTORY, VIEW_REVIEW };
 static int s_view, s_scroll, s_scroll_max=200, requests, asks, cancels, exits;
-static bool s_connected, s_bridge_ready, s_ready_pending;
-static char s_status[160], requested[16];
-static bool busy(void) { return s_view==VIEW_WAIT || s_view==VIEW_DICTATION; }
+static bool s_connected, s_bridge_ready, s_ready_pending, s_phone_record;
+static char s_status[160], s_kind[16], s_prompt[401];
+#define requested s_kind
+static unsigned s_request_id=10;
+static bool s_request_pending;
+static bool busy(void) { return s_view==VIEW_WAIT || s_view==VIEW_DICTATION || s_view==VIEW_REVIEW; }
 static void redraw(void) {}
 static void flush(void *unused) {}
-static void request(const char *kind,const char *prompt) { strcpy(requested,kind);requests++;s_view=VIEW_WAIT; }
+static void next_request(void) { s_request_id++; }
+static void start_timeout(void) { requests++; }
+static void signal_utf8_copy(char *out,size_t size,const char *text) { snprintf(out,size,"%s",text); }
 static void ask(void) { asks++; }
 static void cancel_turn(const char *message) { cancels++;s_view=VIEW_READER; }
 static void window_stack_pop(bool animated) { exits++; }
-''' + handlers + r'''
+''' + request_helper + handlers + r'''
 int main(void) {
   s_connected=s_bridge_ready=true;s_view=VIEW_MENU;
   up_click(NULL,NULL);assert(requests==1 && !strcmp(requested,"capture"));
@@ -71,6 +77,13 @@ int main(void) {
   select_long(NULL,NULL);assert(s_view==VIEW_HELP);
   back_click(NULL,NULL);back_click(NULL,NULL);assert(exits==1);
   s_bridge_ready=false;up_click(NULL,NULL);assert(requests==2 && s_ready_pending);
+  s_connected=s_bridge_ready=true;s_view=VIEW_REVIEW;s_scroll=0;
+  select_long(NULL,NULL);assert(asks==1 && requests==2 && s_view==VIEW_REVIEW);
+  down_click(NULL,NULL);assert(s_scroll==36 && requests==2);
+  s_request_id=77;strcpy(s_prompt,"Reviewed original");select_click(NULL,NULL);
+  assert(requests==3 && !s_phone_record && s_request_id==77 && !s_prompt[0] && !strcmp(requested,"confirm-wake"));
+  s_view=VIEW_REVIEW;back_click(NULL,NULL);assert(cancels==2 && s_view==VIEW_MENU);
+  s_view=VIEW_REVIEW;s_connected=false;select_click(NULL,NULL);assert(requests==3 && cancels==3);
   puts("PASS actual home shortcuts, provider-free local actions, contextual scrolling and Back");
 }
 '''

@@ -11,7 +11,7 @@ pebble build
 ```
 
 The bundle remains `build/pebble-field-inspector.pbw` to preserve tooling identity.
-Its display name is Signal Station and version is 1.2.0. Its UUID is unchanged;
+Its display name is Signal Station and version is 1.3.0. Its UUID is unchanged;
 the six target binaries are Basalt, Chalk, Diorite, Emery, Flint, and Gabbro.
 Always clean after changing message keys, since incremental builds can retain an
 old generated key header. Existing numeric key positions are append-only.
@@ -32,6 +32,7 @@ store publication or physical validation.
 | Method and route | Purpose |
 |---|---|
 | GET `capabilities` | `configured`, enabled source keys, transcript confirmation and reduced-motion preference |
+| POST `confirm-wake` | Confirm a phone-owned voice draft by bound `request_id` only; never sends transcript text |
 | POST `start` | Start `{kind, request_id, prompt?}`; kinds `ask`, `survey` (analysis), and `capture` (save without inference) |
 | GET `status?request_id=n` | Poll every 500ms; `working`, `ready` with bounded `text`, or `error` |
 | GET `history?request_id=n` | Newest five available saved records as `{text}`, bounded to 900 UTF-8 bytes; no provider request |
@@ -44,6 +45,7 @@ store publication or physical validation.
 Native `configmessage` events carry `event.data` and receive `event.respond`.
 `survey` and `capture` ask the watch to collect selected metrics; `record` starts watch
 dictation and retains the native request ID through the resulting `ask`.
+`review` presents an exact voice draft (at most 400 UTF-8 bytes) and provider/context description (at most 350 bytes). Up/Down scroll; Select sends the explicit confirmation; Back keeps it on the phone. Long Select does nothing during review. Review expires after 100 seconds and never invokes a provider automatically. Longer drafts must be reviewed on the phone.
 `cancel` invalidates local state without a native cancellation feedback loop.
 `ask` attaches to a phone operation for watch delivery without another provider request,
 including a capture with no watch sources. `refresh` re-reads capabilities after

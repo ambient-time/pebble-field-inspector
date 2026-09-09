@@ -4,11 +4,11 @@
 #define TEXT_CAP 1024
 #define SNAPSHOT_CAP 1900
 #define PERSIST_REQUEST_ID 1
-typedef enum { VIEW_MENU, VIEW_READER, VIEW_HELP, VIEW_WAIT, VIEW_DICTATION, VIEW_HISTORY } View;
+typedef enum { VIEW_MENU, VIEW_READER, VIEW_HELP, VIEW_WAIT, VIEW_DICTATION, VIEW_HISTORY, VIEW_REVIEW } View;
 static Window *s_window;
 static Layer *s_canvas, *s_body;
 static View s_view;
-static char s_answer[TEXT_CAP], s_history[TEXT_CAP], s_status[160], s_display[TEXT_CAP+200], s_prompt[401];
+static char s_answer[TEXT_CAP], s_history[TEXT_CAP], s_status[160], s_display[TEXT_CAP+200], s_prompt[401], s_review_context[351];
 static char s_enabled[900], s_snapshot[SNAPSHOT_CAP], s_kind[16];
 static bool s_configured, s_bridge_ready, s_confirm, s_connected, s_collecting, s_sampling, s_phone_record;
 static int s_scroll, s_scroll_max, s_stage;
@@ -30,7 +30,7 @@ static void redraw(void);
 static void flush(void *unused);
 static void next_snapshot(void);
 static void ask(void);
-static bool busy(void) { return s_view == VIEW_WAIT || s_view == VIEW_DICTATION; }
+static bool busy(void) { return s_view == VIEW_WAIT || s_view == VIEW_DICTATION || s_view == VIEW_REVIEW; }
 static bool enabled(const char *key) {
   char quoted[64]; snprintf(quoted, sizeof quoted, "\"%s\"", key);
   return strstr(s_enabled, quoted) != NULL;
@@ -41,7 +41,7 @@ static void stop_sampling(void) {
 }
 static void clear_timeout(void) { if (s_timeout_timer) { app_timer_cancel(s_timeout_timer); s_timeout_timer = NULL; } }
 static void cancel_turn(const char *message) {
-  if (s_view == VIEW_WAIT || s_collecting || (s_view == VIEW_DICTATION && s_phone_record)) s_cancel_id = s_request_id;
+  if (s_view == VIEW_WAIT || s_view == VIEW_REVIEW || s_collecting || (s_view == VIEW_DICTATION && s_phone_record)) s_cancel_id = s_request_id;
   s_request_pending = s_snapshot_pending = s_collecting = false;
   s_phone_record=false;
   s_view = VIEW_READER;
@@ -247,6 +247,18 @@ static void inbox(DictionaryIterator *iter,void *context) {
   t=dict_find(iter,MESSAGE_KEY_Enabled); if (t && t->type==TUPLE_CSTRING) snprintf(s_enabled,sizeof s_enabled,"%s",t->value->cstring);
   t=dict_find(iter,MESSAGE_KEY_ConfirmTranscript); if (t) s_confirm=t->value->uint32!=0;
   Tuple *id=dict_find(iter,MESSAGE_KEY_RequestId),*command=dict_find(iter,MESSAGE_KEY_Command);
+  if (id && command && command->type==TUPLE_CSTRING && !strcmp(command->value->cstring,"review")) {
+    if (id->value->uint32==s_request_id) return; // A replay cannot restore a dismissed or confirmed draft.
+    Tuple *prompt=dict_find(iter,MESSAGE_KEY_Prompt), *review_context=dict_find(iter,MESSAGE_KEY_ResponseText);
+    if (!prompt || prompt->type!=TUPLE_CSTRING || prompt->length<2 || prompt->length>401 ||
+        !review_context || review_context->type!=TUPLE_CSTRING || review_context->length<2 || review_context->length>351) return;
+    if (busy()) cancel_turn("");
+    s_request_id=id->value->uint32; s_view=VIEW_REVIEW; s_scroll=0;
+    snprintf(s_kind,sizeof s_kind,"review");
+    signal_utf8_copy(s_prompt,sizeof s_prompt,prompt->value->cstring);
+    signal_utf8_copy(s_review_context,sizeof s_review_context,review_context->value->cstring);
+    start_timeout(); redraw(); return;
+  }
   if (id && command && command->type==TUPLE_CSTRING && !strcmp(command->value->cstring,"ask")) {
     if (id->value->uint32==s_request_id && (busy() || s_answer_id==s_request_id)) return;
     if (busy()) cancel_turn("");
@@ -271,7 +283,7 @@ static void inbox(DictionaryIterator *iter,void *context) {
   Tuple *text=dict_find(iter,MESSAGE_KEY_ResponseText),*status=dict_find(iter,MESSAGE_KEY_StatusText);
   if (text && text->type==TUPLE_CSTRING && text->length<=901 && text->length>1) {
     if (s_answer_id==s_request_id) { s_ack_id=s_request_id; flush(NULL); return; }
-    if (!busy()) return;
+    if (!busy() || s_view==VIEW_REVIEW) return;
     bool history=!strcmp(s_kind,"history");
     signal_utf8_copy(history?s_history:s_answer,TEXT_CAP,text->value->cstring); s_answer_id=s_request_id;
     s_view=history?VIEW_HISTORY:VIEW_READER; s_status[0]='\0'; s_scroll=0; clear_timeout(); stop_sampling(); s_collecting=s_snapshot_pending=false;
@@ -314,8 +326,15 @@ static void local_action(const char *kind) {
   }
   request(kind,NULL);
 }
-static void select_click(ClickRecognizerRef r,void *context) { ask(); }
+static void select_click(ClickRecognizerRef r,void *context) {
+  if (s_view==VIEW_REVIEW) {
+    if (!s_connected || !s_bridge_ready) { cancel_turn("Phone disconnected. Review the draft on your phone."); return; }
+    // Retain the native ID and send no text; the phone owns the immutable draft.
+    s_phone_record=true; request("confirm-wake",NULL);
+  } else ask();
+}
 static void select_long(ClickRecognizerRef r,void *context) {
+  if (s_view==VIEW_REVIEW) return;
   if (s_view==VIEW_MENU) { s_view=VIEW_HELP; s_scroll=0; redraw(); }
   else ask();
 }
@@ -343,6 +362,7 @@ static GRect body_bounds(GRect b) { int inset=PBL_IF_ROUND_ELSE(b.size.w/7,7); r
 static GFont font(void) { return fonts_get_system_font(layer_get_bounds(s_canvas).size.h>=200 ? FONT_KEY_GOTHIC_24_BOLD : FONT_KEY_GOTHIC_18_BOLD); }
 static const char *body_text(void) {
   if (s_view==VIEW_HELP) return "Home shortcuts\nUp: Capture\nSelect: Ask\nDown: History\n\nCapture saves selected readings on your phone without a language model request.\nHistory reads recent saved records without a provider.\nAsk speaks a question and uses your phone's answer provider.\n\nUp/Down scroll reports and history. Back cancels or returns home. Hold Select here to ask.\n\nChoose sources, manage saved history, and configure providers on the phone.";
+  if (s_view==VIEW_REVIEW) { snprintf(s_display,sizeof s_display,"%s\n\n%s\n\nSelect: Send\nBack: keep on phone",s_prompt,s_review_context); return s_display; }
   if (s_view==VIEW_HISTORY) return s_history;
   if (s_view==VIEW_WAIT) { snprintf(s_display,sizeof s_display,"%s%s%s",s_prompt[0]?s_prompt:"",s_prompt[0]?"\n\n":"",s_status); return s_display; }
   if (s_view==VIEW_DICTATION) return s_status;
@@ -380,10 +400,10 @@ static void draw(Layer *layer,GContext *ctx) {
   GRect b=layer_get_bounds(layer); int inset=PBL_IF_ROUND_ELSE(b.size.w/7,7);
   graphics_context_set_fill_color(ctx,GColorBlack); graphics_fill_rect(ctx,b,0,GCornerNone);
   graphics_context_set_text_color(ctx,PBL_IF_COLOR_ELSE(GColorCyan,GColorWhite));
-  graphics_draw_text(ctx,s_view==VIEW_MENU?"SIGNAL STATION":s_view==VIEW_HELP?"FIELD MANUAL":s_view==VIEW_DICTATION?"LISTENING":s_view==VIEW_HISTORY?"RECENT HISTORY":busy()?"CONTACTING":"FIELD REPORT",fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD),GRect(inset,9,b.size.w-inset*2,24),GTextOverflowModeTrailingEllipsis,GTextAlignmentCenter,NULL);
+  graphics_draw_text(ctx,s_view==VIEW_MENU?"SIGNAL STATION":s_view==VIEW_HELP?"FIELD MANUAL":s_view==VIEW_REVIEW?"REVIEW DRAFT":s_view==VIEW_DICTATION?"LISTENING":s_view==VIEW_HISTORY?"RECENT HISTORY":busy()?"CONTACTING":"FIELD REPORT",fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD),GRect(inset,9,b.size.w-inset*2,24),GTextOverflowModeTrailingEllipsis,GTextAlignmentCenter,NULL);
   graphics_context_set_stroke_color(ctx,PBL_IF_COLOR_ELSE(GColorCyan,GColorWhite)); graphics_draw_line(ctx,GPoint(inset,34),GPoint(b.size.w-inset,34));
   graphics_context_set_text_color(ctx,GColorWhite);
-  const char *footer=busy()?"Back: stop":s_view==VIEW_MENU?(s_connected?(s_bridge_ready?"Hold Select: help":"Open lab companion"):"Phone disconnected"):"Up/Down: read";
+  const char *footer=s_view==VIEW_REVIEW?"Select: Send | Back: keep":busy()?"Back: stop":s_view==VIEW_MENU?(s_connected?(s_bridge_ready?"Hold Select: help":"Open lab companion"):"Phone disconnected"):"Up/Down: read";
   graphics_draw_text(ctx,footer,fonts_get_system_font(FONT_KEY_GOTHIC_14),GRect(inset,b.size.h-32,b.size.w-2*inset,20),GTextOverflowModeTrailingEllipsis,GTextAlignmentCenter,NULL);
 }
 static void redraw(void) { if (s_canvas) layer_mark_dirty(s_canvas); if (s_body) layer_mark_dirty(s_body); }

@@ -148,4 +148,48 @@ test('phone settings refresh capabilities without starting or cancelling work',f
   assert.strictEqual(h.messages[0].Configured,0);assert.strictEqual(h.messages[0].BridgeReady,1);
   assert(!latest(h,'cancel'));assert.strictEqual(h.requests.filter(function(r){return r.url.endsWith('/start');}).length,1);
 });
+function review(h,id,prompt,context) { h.client.configuration({kind:'review',request_id:id,prompt:prompt||'What changed?',review_context:context||'xai / grok\nQuestion only; no saved readings or conversation.'}); }
+test('review displays exact draft and context without starting or polling',function(){
+  var h=setup();review(h,90);assert.strictEqual(h.requests.length,0);
+  assert.strictEqual(h.messages[0].Command,'review');assert.strictEqual(h.messages[0].Prompt,'What changed?');
+  assert(h.messages[0].ResponseText.includes('Question only'));assert.strictEqual(h.timers[0].ms,100000);
+  h.client.handle({RequestId:90,TextAck:1});h.client.handle({RequestId:90,Snapshot:'[]'});
+  assert.strictEqual(h.requests.length,0);
+});
+test('review confirms once by ID only and then returns normal reply',function(){
+  var h=setup();review(h,91);h.client.handle({RequestId:91,RequestType:'confirm-wake',Prompt:'forged'});
+  h.client.handle({RequestId:91,RequestType:'confirm-wake'});
+  assert.strictEqual(h.requests.length,1);assert.deepStrictEqual(latest(h,'confirm-wake').body,{request_id:91});
+  assert(h.timers[0].cancelled);latest(h,'confirm-wake').done(null,{});assert(latest(h,'status'));
+  latest(h,'status').done(null,{state:'ready',text:'Answer'});h.client.handle({RequestId:91,TextAck:1});assert(latest(h,'delivered'));
+  assert(!latest(h,'start'));
+});
+test('wrong ID, duplicate config and long-select equivalent cannot confirm a review',function(){
+  var h=setup();review(h,92);review(h,92,'replacement');
+  h.client.handle({RequestId:93,RequestType:'confirm-wake'});ask(h,92);
+  assert.strictEqual(h.messages.length,1);assert.strictEqual(h.requests.length,0);
+});
+test('review cancellation and timeout reject stale confirm or config replay',function(){
+  [false,true].forEach(function(expire){
+    var h=setup();review(h,94);
+    if(expire)h.timers[0].fn();else h.client.handle({RequestId:94,RequestType:'cancel'});
+    assert(latest(h,'cancel'));review(h,94);h.client.handle({RequestId:94,RequestType:'confirm-wake'});
+    assert(!latest(h,'confirm-wake'));assert.strictEqual(h.messages.filter(function(m){return m.Command==='review';}).length,1);
+  });
+});
+test('cancel during confirmation suppresses late polling',function(){
+  var h=setup();review(h,95);h.client.handle({RequestId:95,RequestType:'confirm-wake'});
+  var confirm=latest(h,'confirm-wake');h.client.handle({RequestId:95,RequestType:'cancel'});confirm.done(null,{});
+  assert(!latest(h,'status'));assert(latest(h,'cancel'));
+});
+test('review bounds reject whole draft instead of truncating Unicode or context',function(){
+  ['界'.repeat(134),'A\0B'].forEach(function(prompt){var h=setup();review(h,96,prompt);assert.strictEqual(h.messages.length,0);});
+  var h=setup();review(h,96,'界'.repeat(133),'x'.repeat(350));assert.strictEqual(h.messages[0].Prompt,'界'.repeat(133));
+  h=setup();review(h,96,'draft','x'.repeat(351));assert.strictEqual(h.messages.length,0);
+});
+test('native rejection is terminal and cannot retry the same confirmation',function(){
+  var h=setup();review(h,97);h.client.handle({RequestId:97,RequestType:'confirm-wake'});
+  latest(h,'confirm-wake').done('Draft expired');h.client.handle({RequestId:97,RequestType:'confirm-wake'});
+  assert.strictEqual(h.requests.length,1);assert.strictEqual(h.messages[1].StatusText,'Draft expired');assert(!latest(h,'status'));
+});
 console.log(count+' Signal Station protocol tests passed.');
