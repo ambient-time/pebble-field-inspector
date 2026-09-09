@@ -41,7 +41,7 @@ static void stop_sampling(void) {
 }
 static void clear_timeout(void) { if (s_timeout_timer) { app_timer_cancel(s_timeout_timer); s_timeout_timer = NULL; } }
 static void cancel_turn(const char *message) {
-  if (busy() || s_collecting) s_cancel_id = s_request_id;
+  if (s_view == VIEW_WAIT || s_collecting || (s_view == VIEW_DICTATION && s_phone_record)) s_cancel_id = s_request_id;
   s_request_pending = s_snapshot_pending = s_collecting = false;
   s_phone_record=false;
   s_view = VIEW_READER;
