@@ -1,0 +1,272 @@
+{"at": 1788975620.2152371, "event": "connected"}
+{"at": 1788975620.2806132, "direction": "phone-to-watch", "qemu_protocol": 3, "length": 1}
+{"at": 1788975620.307848, "direction": "phone-to-watch", "endpoint": 17, "length": 25}
+{"at": 1788975620.315716, "direction": "phone-to-watch", "endpoint": 16, "length": 1}
+{"at": 1788975620.317461, "direction": "watch-to-phone", "endpoint": 16, "length": 155}
+{"at": 1788975620.408714, "direction": "phone-to-watch", "endpoint": 5001, "length": 11}
+{"at": 1788975620.4097779, "direction": "watch-to-phone", "endpoint": 5001, "length": 6}
+{"at": 1788975620.444382, "direction": "phone-to-watch", "endpoint": 11, "length": 27}
+{"at": 1788975620.452428, "direction": "phone-to-watch", "endpoint": 52, "length": 1}
+{"at": 1788975620.4991739, "direction": "watch-to-phone", "endpoint": 52, "length": 17}
+{"at": 1788975620.5094368, "direction": "watch-to-phone", "endpoint": 2001, "length": 6}
+{"at": 1788975620.597981, "direction": "phone-to-watch", "endpoint": 6778, "length": 1}
+{"at": 1788975620.5989602, "direction": "watch-to-phone", "endpoint": 6778, "length": 29}
+{"at": 1788975620.599185, "direction": "watch-to-phone", "endpoint": 6778, "length": 29}
+{"at": 1788975620.7377548, "direction": "phone-to-watch", "endpoint": 6778, "length": 2}
+{"at": 1788975620.740183, "direction": "phone-to-watch", "endpoint": 6778, "length": 2}
+{"at": 1788975620.79269, "direction": "phone-to-watch", "endpoint": 43981, "length": 178}
+{"at": 1788975620.796503, "direction": "watch-to-phone", "endpoint": 43981, "length": 1}
+{"at": 1788975620.8311412, "direction": "phone-to-watch", "endpoint": 45531, "length": 4, "command": 5, "database": 0}
+{"at": 1788975620.8322, "direction": "watch-to-phone", "endpoint": 45531, "length": 3}
+{"at": 1788975620.844203, "direction": "phone-to-watch", "endpoint": 45531, "length": 4, "command": 5, "database": 1}
+{"at": 1788975620.86523, "direction": "watch-to-phone", "endpoint": 45531, "length": 3}
+{"at": 1788975620.8863602, "direction": "phone-to-watch", "endpoint": 45531, "length": 4, "command": 5, "database": 2}
+{"at": 1788975620.889246, "direction": "watch-to-phone", "endpoint": 45531, "length": 3}
+{"at": 1788975620.9062881, "direction": "phone-to-watch", "endpoint": 45531, "length": 4, "command": 5, "database": 3}
+{"at": 1788975620.927242, "direction": "watch-to-phone", "endpoint": 45531, "length": 3}
+{"at": 1788975620.95028, "direction": "phone-to-watch", "endpoint": 45531, "length": 4, "command": 5, "database": 4}
+{"at": 1788975620.952445, "direction": "watch-to-phone", "endpoint": 45531, "length": 3}
+{"at": 1788975620.968822, "direction": "phone-to-watch", "endpoint": 45531, "length": 4, "command": 5, "database": 5}
+{"at": 1788975620.970251, "direction": "watch-to-phone", "endpoint": 45531, "length": 3}
+{"at": 1788975620.988352, "direction": "phone-to-watch", "endpoint": 45531, "length": 4, "command": 5, "database": 6}
+{"at": 1788975620.9938939, "direction": "watch-to-phone", "endpoint": 45531, "length": 3}
+{"at": 1788975621.0103219, "direction": "phone-to-watch", "endpoint": 45531, "length": 4, "command": 5, "database": 7}
+{"at": 1788975621.01108, "direction": "watch-to-phone", "endpoint": 45531, "length": 3}
+{"at": 1788975621.017697, "direction": "phone-to-watch", "endpoint": 45531, "length": 4, "command": 5, "database": 8}
+{"at": 1788975621.018719, "direction": "watch-to-phone", "endpoint": 45531, "length": 3}
+{"at": 1788975621.025685, "direction": "phone-to-watch", "endpoint": 45531, "length": 4, "command": 5, "database": 9}
+{"at": 1788975621.031935, "direction": "watch-to-phone", "endpoint": 45531, "length": 3}
+{"at": 1788975621.053814, "direction": "phone-to-watch", "endpoint": 45531, "length": 4, "command": 5, "database": 10}
+{"at": 1788975621.0548851, "direction": "watch-to-phone", "endpoint": 45531, "length": 3}
+{"at": 1788975621.0683892, "direction": "phone-to-watch", "endpoint": 45531, "length": 4, "command": 5, "database": 11}
+{"at": 1788975621.069768, "direction": "watch-to-phone", "endpoint": 45531, "length": 3}
+{"at": 1788975621.078301, "direction": "phone-to-watch", "endpoint": 45531, "length": 4, "command": 5, "database": 255}
+{"at": 1788975621.079266, "direction": "watch-to-phone", "endpoint": 45531, "length": 3}
+{"at": 1788975621.157301, "direction": "phone-to-watch", "endpoint": 45531, "length": 21, "command": 1, "database": 7}
+{"at": 1788975621.158305, "direction": "watch-to-phone", "endpoint": 45531, "length": 3}
+{"at": 1788975621.186063, "direction": "phone-to-watch", "endpoint": 45531, "length": 34, "command": 1, "database": 9}
+{"at": 1788975621.198866, "direction": "watch-to-phone", "endpoint": 45531, "length": 3}
+{"at": 1788975621.597464, "direction": "phone-to-watch", "endpoint": 32, "length": 13}
+{"at": 1788975741.989263, "direction": "watch-to-phone", "endpoint": 6778, "length": 46}
+{"at": 1788975741.995698, "direction": "phone-to-watch", "endpoint": 6778, "length": 2}
+{"at": 1788975805.3308458, "event": "disconnected"}
+{"at": 1788975823.096125, "event": "connected"}
+{"at": 1788975823.099769, "direction": "phone-to-watch", "qemu_protocol": 3, "length": 1}
+{"at": 1788975823.10691, "direction": "phone-to-watch", "endpoint": 17, "length": 25}
+{"at": 1788975823.1082811, "direction": "phone-to-watch", "endpoint": 16, "length": 1}
+{"at": 1788975823.1098292, "event": "synthetic-emulator-serial", "serial": "SS-EMU-00001"}
+{"at": 1788975823.109846, "direction": "watch-to-phone", "endpoint": 16, "length": 155}
+{"at": 1788975823.119076, "direction": "phone-to-watch", "endpoint": 5001, "length": 11}
+{"at": 1788975823.119869, "direction": "watch-to-phone", "endpoint": 5001, "length": 6}
+{"at": 1788975823.1248739, "direction": "phone-to-watch", "endpoint": 11, "length": 27}
+{"at": 1788975823.1255329, "direction": "phone-to-watch", "endpoint": 52, "length": 1}
+{"at": 1788975823.156499, "direction": "watch-to-phone", "endpoint": 52, "length": 17}
+{"at": 1788975823.168354, "direction": "phone-to-watch", "endpoint": 6778, "length": 1}
+{"at": 1788975823.169019, "direction": "watch-to-phone", "endpoint": 6778, "length": 29}
+{"at": 1788975823.169146, "direction": "watch-to-phone", "endpoint": 6778, "length": 29}
+{"at": 1788975823.194035, "direction": "phone-to-watch", "endpoint": 6778, "length": 2}
+{"at": 1788975823.199507, "direction": "phone-to-watch", "endpoint": 6778, "length": 2}
+{"at": 1788975823.201424, "direction": "phone-to-watch", "endpoint": 45531, "length": 21, "command": 1, "database": 7}
+{"at": 1788975823.202247, "direction": "watch-to-phone", "endpoint": 45531, "length": 3}
+{"at": 1788975824.1683898, "direction": "phone-to-watch", "endpoint": 32, "length": 13}
+{"at": 1788975867.515284, "direction": "phone-to-watch", "endpoint": 45531, "length": 149, "command": 1, "database": 2}
+{"at": 1788975867.515907, "direction": "phone-to-watch", "endpoint": 43981, "length": 194}
+{"at": 1788975867.518883, "direction": "watch-to-phone", "endpoint": 45531, "length": 3}
+{"at": 1788975867.5214221, "direction": "watch-to-phone", "endpoint": 43981, "length": 1}
+{"at": 1788975867.534066, "direction": "phone-to-watch", "endpoint": 52, "length": 17}
+{"at": 1788975867.552792, "direction": "watch-to-phone", "endpoint": 6001, "length": 21}
+{"at": 1788975867.553112, "direction": "watch-to-phone", "endpoint": 52, "length": 17}
+{"at": 1788975867.553334, "direction": "watch-to-phone", "endpoint": 52, "length": 17}
+{"at": 1788975867.565162, "direction": "phone-to-watch", "endpoint": 6001, "length": 2}
+{"at": 1788975867.584342, "direction": "phone-to-watch", "endpoint": 48879, "length": 10, "command": 1, "object_type": 133}
+{"at": 1788975867.5906801, "direction": "watch-to-phone", "endpoint": 48879, "length": 5}
+{"at": 1788975867.599951, "direction": "phone-to-watch", "endpoint": 48879, "length": 2009, "command": 2}
+{"at": 1788975867.6133618, "direction": "watch-to-phone", "endpoint": 48879, "length": 5}
+{"at": 1788975867.620352, "direction": "phone-to-watch", "endpoint": 48879, "length": 2009, "command": 2}
+{"at": 1788975867.6336808, "direction": "watch-to-phone", "endpoint": 48879, "length": 5}
+{"at": 1788975867.640065, "direction": "phone-to-watch", "endpoint": 48879, "length": 2009, "command": 2}
+{"at": 1788975867.6522849, "direction": "watch-to-phone", "endpoint": 48879, "length": 5}
+{"at": 1788975867.6572502, "direction": "phone-to-watch", "endpoint": 48879, "length": 2009, "command": 2}
+{"at": 1788975867.672236, "direction": "watch-to-phone", "endpoint": 48879, "length": 5}
+{"at": 1788975867.678238, "direction": "phone-to-watch", "endpoint": 48879, "length": 149, "command": 2}
+{"at": 1788975867.679657, "direction": "watch-to-phone", "endpoint": 48879, "length": 5}
+{"at": 1788975867.6855822, "direction": "phone-to-watch", "endpoint": 48879, "length": 2009, "command": 2}
+{"at": 1788975867.699672, "direction": "watch-to-phone", "endpoint": 48879, "length": 5}
+{"at": 1788975867.7039738, "direction": "phone-to-watch", "endpoint": 48879, "length": 2009, "command": 2}
+{"at": 1788975867.7190988, "direction": "watch-to-phone", "endpoint": 48879, "length": 5}
+{"at": 1788975867.723017, "direction": "phone-to-watch", "endpoint": 48879, "length": 2009, "command": 2}
+{"at": 1788975867.738131, "direction": "watch-to-phone", "endpoint": 48879, "length": 5}
+{"at": 1788975867.744638, "direction": "phone-to-watch", "endpoint": 48879, "length": 705, "command": 2}
+{"at": 1788975867.749952, "direction": "watch-to-phone", "endpoint": 48879, "length": 5}
+{"at": 1788975867.754171, "direction": "phone-to-watch", "endpoint": 48879, "length": 9, "command": 3}
+{"at": 1788975867.7611048, "direction": "watch-to-phone", "endpoint": 48879, "length": 5}
+{"at": 1788975867.7647722, "direction": "phone-to-watch", "endpoint": 48879, "length": 5, "command": 5}
+{"at": 1788975867.766316, "direction": "watch-to-phone", "endpoint": 48879, "length": 5}
+{"at": 1788975867.771348, "direction": "phone-to-watch", "endpoint": 48879, "length": 10, "command": 1, "object_type": 132}
+{"at": 1788975867.774697, "direction": "watch-to-phone", "endpoint": 48879, "length": 5}
+{"at": 1788975867.780586, "direction": "phone-to-watch", "endpoint": 48879, "length": 2009, "command": 2}
+{"at": 1788975867.7935739, "direction": "watch-to-phone", "endpoint": 48879, "length": 5}
+{"at": 1788975867.799294, "direction": "phone-to-watch", "endpoint": 48879, "length": 2009, "command": 2}
+{"at": 1788975867.814251, "direction": "watch-to-phone", "endpoint": 48879, "length": 5}
+{"at": 1788975867.819733, "direction": "phone-to-watch", "endpoint": 48879, "length": 269, "command": 2}
+{"at": 1788975867.822402, "direction": "watch-to-phone", "endpoint": 48879, "length": 5}
+{"at": 1788975867.8311849, "direction": "phone-to-watch", "endpoint": 48879, "length": 9, "command": 3}
+{"at": 1788975867.834524, "direction": "watch-to-phone", "endpoint": 48879, "length": 5}
+{"at": 1788975867.837847, "direction": "phone-to-watch", "endpoint": 48879, "length": 5, "command": 5}
+{"at": 1788975867.8451269, "direction": "watch-to-phone", "endpoint": 48879, "length": 5}
+{"at": 1788975868.100577, "direction": "watch-to-phone", "qemu_protocol": 7, "length": 1}
+{"at": 1788975868.122369, "direction": "watch-to-phone", "endpoint": 48, "length": 32}
+{"at": 1788975868.152145, "direction": "watch-to-phone", "endpoint": 52, "length": 17}
+{"at": 1788975868.152398, "direction": "watch-to-phone", "endpoint": 52, "length": 17}
+{"at": 1788975868.351551, "direction": "watch-to-phone", "qemu_protocol": 7, "length": 1}
+{"at": 1788975868.841268, "direction": "phone-to-watch", "endpoint": 48, "length": 2}
+{"at": 1788975868.864987, "direction": "phone-to-watch", "endpoint": 48, "length": 73}
+{"at": 1788975868.866664, "direction": "watch-to-phone", "endpoint": 48, "length": 2}
+{"at": 1788975868.879211, "direction": "phone-to-watch", "endpoint": 48, "length": 73}
+{"at": 1788975868.888499, "direction": "watch-to-phone", "endpoint": 48, "length": 2}
+{"at": 1788975949.0893178, "direction": "phone-to-watch", "endpoint": 48, "length": 88}
+{"at": 1788975949.090784, "direction": "watch-to-phone", "endpoint": 48, "length": 2}
+{"at": 1788975953.324914, "direction": "phone-to-watch", "endpoint": 48, "length": 81}
+{"at": 1788975953.3276958, "direction": "watch-to-phone", "endpoint": 48, "length": 308}
+{"at": 1788975953.328083, "direction": "watch-to-phone", "endpoint": 48, "length": 2}
+{"at": 1788975953.33776, "direction": "phone-to-watch", "endpoint": 48, "length": 2}
+{"at": 1788975953.362682, "direction": "phone-to-watch", "endpoint": 48, "length": 59}
+{"at": 1788975953.372498, "direction": "watch-to-phone", "endpoint": 52, "length": 17}
+{"at": 1788975953.3727171, "direction": "watch-to-phone", "endpoint": 52, "length": 17}
+{"at": 1788975953.373177, "direction": "watch-to-phone", "endpoint": 48, "length": 2}
+{"at": 1788976027.639157, "direction": "phone-to-watch", "endpoint": 16, "length": 1}
+{"at": 1788976027.6410758, "event": "synthetic-emulator-serial", "serial": "SS-EMU-00001"}
+{"at": 1788976027.6411011, "direction": "watch-to-phone", "endpoint": 16, "length": 155}
+{"at": 1788976027.6787279, "direction": "phone-to-watch", "endpoint": 45531, "length": 149, "command": 1, "database": 2}
+{"at": 1788976027.689804, "direction": "watch-to-phone", "endpoint": 45531, "length": 3}
+{"at": 1788976027.694784, "direction": "phone-to-watch", "endpoint": 52, "length": 17}
+{"at": 1788976027.707242, "direction": "watch-to-phone", "endpoint": 6001, "length": 21}
+{"at": 1788976027.707454, "direction": "watch-to-phone", "endpoint": 52, "length": 17}
+{"at": 1788976027.7076879, "direction": "watch-to-phone", "endpoint": 52, "length": 17}
+{"at": 1788976027.71401, "direction": "phone-to-watch", "endpoint": 6001, "length": 2}
+{"at": 1788976027.7246552, "direction": "phone-to-watch", "endpoint": 48879, "length": 10, "command": 1, "object_type": 133}
+{"at": 1788976027.7307231, "direction": "watch-to-phone", "endpoint": 48879, "length": 5}
+{"at": 1788976027.734897, "direction": "phone-to-watch", "endpoint": 48879, "length": 2009, "command": 2}
+{"at": 1788976027.7461839, "direction": "watch-to-phone", "endpoint": 48879, "length": 5}
+{"at": 1788976027.750426, "direction": "phone-to-watch", "endpoint": 48879, "length": 2009, "command": 2}
+{"at": 1788976027.7638311, "direction": "watch-to-phone", "endpoint": 48879, "length": 5}
+{"at": 1788976027.766252, "direction": "phone-to-watch", "endpoint": 48879, "length": 2009, "command": 2}
+{"at": 1788976027.780782, "direction": "watch-to-phone", "endpoint": 48879, "length": 5}
+{"at": 1788976027.784724, "direction": "phone-to-watch", "endpoint": 48879, "length": 2009, "command": 2}
+{"at": 1788976027.797966, "direction": "watch-to-phone", "endpoint": 48879, "length": 5}
+{"at": 1788976027.8018591, "direction": "phone-to-watch", "endpoint": 48879, "length": 149, "command": 2}
+{"at": 1788976027.80428, "direction": "watch-to-phone", "endpoint": 48879, "length": 5}
+{"at": 1788976027.8072152, "direction": "phone-to-watch", "endpoint": 48879, "length": 2009, "command": 2}
+{"at": 1788976027.821595, "direction": "watch-to-phone", "endpoint": 48879, "length": 5}
+{"at": 1788976027.825152, "direction": "phone-to-watch", "endpoint": 48879, "length": 2009, "command": 2}
+{"at": 1788976027.838857, "direction": "watch-to-phone", "endpoint": 48879, "length": 5}
+{"at": 1788976027.842755, "direction": "phone-to-watch", "endpoint": 48879, "length": 2009, "command": 2}
+{"at": 1788976027.856032, "direction": "watch-to-phone", "endpoint": 48879, "length": 5}
+{"at": 1788976027.86056, "direction": "phone-to-watch", "endpoint": 48879, "length": 797, "command": 2}
+{"at": 1788976027.8664389, "direction": "watch-to-phone", "endpoint": 48879, "length": 5}
+{"at": 1788976027.8691149, "direction": "phone-to-watch", "endpoint": 48879, "length": 9, "command": 3}
+{"at": 1788976027.875595, "direction": "watch-to-phone", "endpoint": 48879, "length": 5}
+{"at": 1788976027.879594, "direction": "phone-to-watch", "endpoint": 48879, "length": 5, "command": 5}
+{"at": 1788976027.880901, "direction": "watch-to-phone", "endpoint": 48879, "length": 5}
+{"at": 1788976027.8843641, "direction": "phone-to-watch", "endpoint": 48879, "length": 10, "command": 1, "object_type": 132}
+{"at": 1788976027.887361, "direction": "watch-to-phone", "endpoint": 48879, "length": 5}
+{"at": 1788976027.891487, "direction": "phone-to-watch", "endpoint": 48879, "length": 2009, "command": 2}
+{"at": 1788976027.9026089, "direction": "watch-to-phone", "endpoint": 48879, "length": 5}
+{"at": 1788976027.907336, "direction": "phone-to-watch", "endpoint": 48879, "length": 2009, "command": 2}
+{"at": 1788976027.9197, "direction": "watch-to-phone", "endpoint": 48879, "length": 5}
+{"at": 1788976027.922208, "direction": "phone-to-watch", "endpoint": 48879, "length": 269, "command": 2}
+{"at": 1788976027.9266748, "direction": "watch-to-phone", "endpoint": 48879, "length": 5}
+{"at": 1788976027.929323, "direction": "phone-to-watch", "endpoint": 48879, "length": 9, "command": 3}
+{"at": 1788976027.9350889, "direction": "watch-to-phone", "endpoint": 48879, "length": 5}
+{"at": 1788976027.938623, "direction": "phone-to-watch", "endpoint": 48879, "length": 5, "command": 5}
+{"at": 1788976027.943541, "direction": "watch-to-phone", "endpoint": 48879, "length": 5}
+{"at": 1788976028.200732, "direction": "watch-to-phone", "qemu_protocol": 7, "length": 1}
+{"at": 1788976028.2176409, "direction": "watch-to-phone", "endpoint": 48, "length": 32}
+{"at": 1788976028.236625, "direction": "watch-to-phone", "endpoint": 52, "length": 17}
+{"at": 1788976028.236852, "direction": "watch-to-phone", "endpoint": 52, "length": 17}
+{"at": 1788976028.323253, "direction": "phone-to-watch", "endpoint": 48, "length": 2}
+{"at": 1788976028.3385391, "direction": "phone-to-watch", "endpoint": 48, "length": 88}
+{"at": 1788976028.3401291, "direction": "watch-to-phone", "endpoint": 48, "length": 2}
+{"at": 1788976028.346, "direction": "phone-to-watch", "endpoint": 48, "length": 88}
+{"at": 1788976028.347413, "direction": "watch-to-phone", "endpoint": 48, "length": 2}
+{"at": 1788976028.456297, "direction": "watch-to-phone", "qemu_protocol": 7, "length": 1}
+{"at": 1788976053.748366, "direction": "phone-to-watch", "endpoint": 48, "length": 81}
+{"at": 1788976053.750772, "direction": "watch-to-phone", "endpoint": 48, "length": 308}
+{"at": 1788976053.7509792, "direction": "watch-to-phone", "endpoint": 48, "length": 2}
+{"at": 1788976053.7595892, "direction": "phone-to-watch", "endpoint": 48, "length": 2}
+{"at": 1788976053.771615, "direction": "watch-to-phone", "endpoint": 48, "length": 66}
+{"at": 1788976053.7741818, "direction": "phone-to-watch", "endpoint": 48, "length": 59}
+{"at": 1788976053.775542, "direction": "watch-to-phone", "endpoint": 48, "length": 2}
+{"at": 1788976053.78146, "direction": "phone-to-watch", "endpoint": 48, "length": 2}
+{"at": 1788976054.287873, "direction": "phone-to-watch", "endpoint": 48, "length": 182}
+{"at": 1788976054.29014, "direction": "watch-to-phone", "endpoint": 48, "length": 38}
+{"at": 1788976054.2903528, "direction": "watch-to-phone", "endpoint": 48, "length": 2}
+{"at": 1788976054.297915, "direction": "phone-to-watch", "endpoint": 48, "length": 2}
+{"at": 1788976098.9700181, "direction": "phone-to-watch", "endpoint": 16, "length": 1}
+{"at": 1788976098.971798, "event": "synthetic-emulator-serial", "serial": "SS-EMU-00001"}
+{"at": 1788976098.971822, "direction": "watch-to-phone", "endpoint": 16, "length": 155}
+{"at": 1788976098.997105, "direction": "phone-to-watch", "endpoint": 45531, "length": 149, "command": 1, "database": 2}
+{"at": 1788976099.0502641, "direction": "watch-to-phone", "endpoint": 45531, "length": 3}
+{"at": 1788976099.050369, "direction": "watch-to-phone", "endpoint": 52, "length": 17}
+{"at": 1788976099.051239, "direction": "watch-to-phone", "endpoint": 52, "length": 17}
+{"at": 1788976099.056593, "direction": "phone-to-watch", "endpoint": 52, "length": 17}
+{"at": 1788976099.060051, "direction": "phone-to-watch", "endpoint": 2006, "length": 1}
+{"at": 1788976099.068864, "direction": "watch-to-phone", "endpoint": 6001, "length": 21}
+{"at": 1788976099.069142, "direction": "watch-to-phone", "endpoint": 52, "length": 17}
+{"at": 1788976099.069401, "direction": "watch-to-phone", "endpoint": 52, "length": 17}
+{"at": 1788976099.078133, "direction": "phone-to-watch", "endpoint": 6001, "length": 2}
+{"at": 1788976099.08428, "direction": "phone-to-watch", "endpoint": 48879, "length": 10, "command": 1, "object_type": 133}
+{"at": 1788976099.090366, "direction": "watch-to-phone", "endpoint": 48879, "length": 5}
+{"at": 1788976099.0943391, "direction": "phone-to-watch", "endpoint": 48879, "length": 2009, "command": 2}
+{"at": 1788976099.1062799, "direction": "watch-to-phone", "endpoint": 48879, "length": 5}
+{"at": 1788976099.1116319, "direction": "phone-to-watch", "endpoint": 48879, "length": 2009, "command": 2}
+{"at": 1788976099.1233048, "direction": "watch-to-phone", "endpoint": 48879, "length": 5}
+{"at": 1788976099.126562, "direction": "phone-to-watch", "endpoint": 48879, "length": 2009, "command": 2}
+{"at": 1788976099.14111, "direction": "watch-to-phone", "endpoint": 48879, "length": 5}
+{"at": 1788976099.14587, "direction": "phone-to-watch", "endpoint": 48879, "length": 2009, "command": 2}
+{"at": 1788976099.156864, "direction": "watch-to-phone", "endpoint": 48879, "length": 5}
+{"at": 1788976099.162295, "direction": "phone-to-watch", "endpoint": 48879, "length": 149, "command": 2}
+{"at": 1788976099.1636071, "direction": "watch-to-phone", "endpoint": 48879, "length": 5}
+{"at": 1788976099.168469, "direction": "phone-to-watch", "endpoint": 48879, "length": 2009, "command": 2}
+{"at": 1788976099.179685, "direction": "watch-to-phone", "endpoint": 48879, "length": 5}
+{"at": 1788976099.1841931, "direction": "phone-to-watch", "endpoint": 48879, "length": 2009, "command": 2}
+{"at": 1788976099.197071, "direction": "watch-to-phone", "endpoint": 48879, "length": 5}
+{"at": 1788976099.201359, "direction": "phone-to-watch", "endpoint": 48879, "length": 2009, "command": 2}
+{"at": 1788976099.214388, "direction": "watch-to-phone", "endpoint": 48879, "length": 5}
+{"at": 1788976099.2183301, "direction": "phone-to-watch", "endpoint": 48879, "length": 705, "command": 2}
+{"at": 1788976099.225495, "direction": "watch-to-phone", "endpoint": 48879, "length": 5}
+{"at": 1788976099.2284641, "direction": "phone-to-watch", "endpoint": 48879, "length": 9, "command": 3}
+{"at": 1788976099.2349188, "direction": "watch-to-phone", "endpoint": 48879, "length": 5}
+{"at": 1788976099.2377331, "direction": "phone-to-watch", "endpoint": 48879, "length": 5, "command": 5}
+{"at": 1788976099.2389069, "direction": "watch-to-phone", "endpoint": 48879, "length": 5}
+{"at": 1788976099.2427032, "direction": "phone-to-watch", "endpoint": 48879, "length": 10, "command": 1, "object_type": 132}
+{"at": 1788976099.2457652, "direction": "watch-to-phone", "endpoint": 48879, "length": 5}
+{"at": 1788976099.249933, "direction": "phone-to-watch", "endpoint": 48879, "length": 2009, "command": 2}
+{"at": 1788976099.261067, "direction": "watch-to-phone", "endpoint": 48879, "length": 5}
+{"at": 1788976099.265392, "direction": "phone-to-watch", "endpoint": 48879, "length": 2009, "command": 2}
+{"at": 1788976099.278093, "direction": "watch-to-phone", "endpoint": 48879, "length": 5}
+{"at": 1788976099.281952, "direction": "phone-to-watch", "endpoint": 48879, "length": 269, "command": 2}
+{"at": 1788976099.28513, "direction": "watch-to-phone", "endpoint": 48879, "length": 5}
+{"at": 1788976099.289123, "direction": "phone-to-watch", "endpoint": 48879, "length": 9, "command": 3}
+{"at": 1788976099.2918541, "direction": "watch-to-phone", "endpoint": 48879, "length": 5}
+{"at": 1788976099.2951522, "direction": "phone-to-watch", "endpoint": 48879, "length": 5, "command": 5}
+{"at": 1788976099.299684, "direction": "watch-to-phone", "endpoint": 48879, "length": 5}
+{"at": 1788976099.55927, "direction": "watch-to-phone", "qemu_protocol": 7, "length": 1}
+{"at": 1788976099.573029, "direction": "watch-to-phone", "endpoint": 48, "length": 32}
+{"at": 1788976099.5913012, "direction": "watch-to-phone", "endpoint": 52, "length": 17}
+{"at": 1788976099.5915892, "direction": "watch-to-phone", "endpoint": 52, "length": 17}
+{"at": 1788976099.6674318, "direction": "phone-to-watch", "endpoint": 48, "length": 2}
+{"at": 1788976099.679688, "direction": "phone-to-watch", "endpoint": 48, "length": 88}
+{"at": 1788976099.681246, "direction": "watch-to-phone", "endpoint": 48, "length": 2}
+{"at": 1788976099.68849, "direction": "phone-to-watch", "endpoint": 48, "length": 88}
+{"at": 1788976099.692393, "direction": "watch-to-phone", "endpoint": 48, "length": 2}
+{"at": 1788976099.814946, "direction": "watch-to-phone", "qemu_protocol": 7, "length": 1}
+{"at": 1788976109.806443, "direction": "phone-to-watch", "endpoint": 48, "length": 81}
+{"at": 1788976109.809497, "direction": "watch-to-phone", "endpoint": 48, "length": 308}
+{"at": 1788976109.809715, "direction": "watch-to-phone", "endpoint": 48, "length": 2}
+{"at": 1788976109.8211899, "direction": "phone-to-watch", "endpoint": 48, "length": 2}
+{"at": 1788976109.8315442, "direction": "phone-to-watch", "endpoint": 48, "length": 59}
+{"at": 1788976109.833888, "direction": "watch-to-phone", "endpoint": 2006, "length": 101}
+{"at": 1788976109.893312, "direction": "watch-to-phone", "endpoint": 52, "length": 17}
+{"at": 1788976109.893457, "direction": "watch-to-phone", "endpoint": 52, "length": 17}
+{"at": 1788976154.9050539, "event": "disconnected"}

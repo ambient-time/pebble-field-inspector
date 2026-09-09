@@ -111,3 +111,66 @@ recovery workflows; the report alone cannot distinguish those mechanisms. No
 new causal fix or binary was produced from these leads. The installed device's
 firmware version, event sequence, or retained logs are needed to narrow them
 further. Do not reinstall on the recovered watch to obtain that evidence.
+
+## Native companion comparison on isolated emulators
+
+September 9 follow-up used the exact released lab 8 APK, a fresh Android emulator
+profile, and a dedicated Diorite emulator. Neither emulator had provider keys.
+No physical device was connected. The watch reports SDK firmware v4.3, git
+`0e3c3fd`, dated November 22, 2016; this is not a verified match for the owner's
+firmware. The emulator also lacks a recovery firmware slot, and the companion
+explicitly exempts socket watches from the missing-recovery check. This test
+therefore does not cover physical Bluetooth pairing or the recovery updater.
+
+The SDK image has an empty serial number. Signal Station uses an empty watch ID
+for Phone only, preventing selection of that emulator. A local relay supplied
+only the synthetic serial `SS-EMU-00001` in its version response. All firmware,
+platform and capability fields were preserved. This adjustment is part of the
+test setup, not a companion code change or evidence about the owner's watch.
+
+| Step | Observed result |
+| --- | --- |
+| Released APK connects to fresh Diorite emulator | Database synchronization completes; connection remains available. |
+| Select emulator and tap Install watch app | Released PBW transfers and launches; native bridge reports connected and verified. |
+| Enable only Watch battery and tap Capture readings | Released watchapp faults and exits to the app menu; phone initially waits for collection. Repeated with logging enabled and the fault recurs. |
+| Install corrected development PBW through the companion's local developer connection | Same APK and same PKJS; only the corrected watch binary differs. |
+| Repeat battery-only capture | Phone saves a ready record with one available reading. Watch shows the capture result and remains in its report view. Simulated battery value is 80 percent, not charging. |
+
+The emitted fault line is preserved in [app-fault.txt](evidence/pebble-2-reset-20260909/app-fault.txt).
+PC and LR are zero; the tool's automatic attribution of address zero to
+`appinfo.auto.c` is not useful symbolication and is not retained as causal evidence.
+The recursive stack growth is established independently by the failing host
+regression and the released binary's disassembly.
+
+The relay recorded **127 phone-to-watch packets, zero reset-endpoint packets,
+and zero firmware/recovery transfers** across the comparison. Its three installs
+transfer only app executable (0x85) and app resources (0x84). The initial install's
+app-entry acknowledgement preceded launch in this run; the proposed installer
+race was not reproduced. The full wipe remains unreproduced.
+
+[Packet metadata and hashes](evidence/pebble-2-reset-20260909/summary.json),
+[wire metadata](evidence/pebble-2-reset-20260909/wire.jsonl),
+[released app after capture](evidence/pebble-2-reset-20260909/after-native-capture.png),
+and [corrected capture result](evidence/pebble-2-reset-20260909/after-fixed-native-capture.png)
+retain the comparison. The relay script in that directory is the exact local
+harness, with fixed loopback ports and a disposable working directory; do not
+use it with hardware. It records packet types and lengths, not chat or sensor
+payloads. Full emulator logs and the disposable Android data image are retained
+under `/Volumes/Galactus/drummer/staging/signal-station-reset-emulator/`.
+The dedicated emulator processes were stopped after evidence collection.
+
+## Firmware source cross-check
+
+Current upstream source was inspected at commit
+`6e9c7c29e1fd78ecb899127c5c6f28f33e5d1488`, separately from the older SDK image:
+
+- [BlobDB clear handler](https://github.com/coredevices/PebbleOS/blob/6e9c7c29e1fd78ecb899127c5c6f28f33e5d1488/src/fw/services/blob_db/endpoint.c)
+  calls `blob_db_flush` for the requested database. An invalid database number
+  is rejected by [the API](https://github.com/coredevices/PebbleOS/blob/6e9c7c29e1fd78ecb899127c5c6f28f33e5d1488/src/fw/services/blob_db/api.c).
+- [The reset endpoint](https://github.com/coredevices/PebbleOS/blob/6e9c7c29e1fd78ecb899127c5c6f28f33e5d1488/src/fw/kernel/util/fw_reset.c)
+  distinguishes normal reset, core dump, recovery, and factory reset. The latter
+  calls the separate factory-reset routine.
+
+This supports distinguishing synchronization from a factory-reset request; it
+cannot exclude a fault in the unknown firmware running on the owner's watch.
+No replacement PBW or APK was published and the installation hold remains.

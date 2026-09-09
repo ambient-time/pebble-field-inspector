@@ -1,0 +1,1 @@
+[10:48:29] ault_handling.c:97> App fault! {e2fd86ec-dfb8-460c-afc1-ebe4d071657a} PC: 0 LR: 0

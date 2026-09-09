@@ -1,0 +1,21 @@
+{
+  "android_apk_sha256": "5b5068de1b0595f419f9e8d177334b699c2af3d3fbd210bcb82a39d11956c58e",
+  "released_pbw_sha256": "3809a2c03cebbd5115d4607b4fcfd74d8a84e335d96ac37660b48a517f4dc70b",
+  "corrected_pbw_sha256": "240318421c8750f83b4bea625c7cc4ca77a22b244a814d4acf8d1221ab8acbb9",
+  "emulator_firmware": "v4.3 0e3c3fd (2016-11-22), Diorite SDK image",
+  "serial_shim": "SS-EMU-00001; blank emulator serial only; no other watch-version fields changed",
+  "phone_packet_count": 127,
+  "reset_endpoint_2003_packets": 0,
+  "putbytes_object_types": {
+    "133": 3,
+    "132": 3
+  },
+  "firmware_or_recovery_transfer_count": 0,
+  "files": {
+    "trace-proxy.py": "5d9d9b9fee6aca6708a13e764bcc22a7239f1adcbc35918bb87f2ef3a63b574e",
+    "app-fault.txt": "421963a1dd86fb90cf2ac546ee645b490379f2bd4f5febf73e6f8bae60c5b56f",
+    "after-fixed-native-capture.png": "ddda25fc07b4238c03572bbc213bf908316961221c2a733cf1f3b98874b011d0",
+    "wire.jsonl": "75dedc75e3d86d3f5418dd6ae379910f414a74122073c495daf8e80079c6107d",
+    "after-native-capture.png": "9c3571026f411a075797776ff0e2f15b7eb63a45e0b0f9db74e2a7d192a2dd23"
+  }
+}
