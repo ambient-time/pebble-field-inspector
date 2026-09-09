@@ -3,12 +3,17 @@
 By Luke Steuber. September 9, 2026.
 
 Watch installation is paused following an owner report of a hard reset after
-sideloading. The exact trigger and whether pairing/settings were erased remain
-unconfirmed. Do not treat the correction below as proof of the reported reset's
+sideloading. The owner subsequently confirmed erased settings and return to setup, and
+reported needing to delete the app to restore the watch. Which app was deleted
+(the Android companion or watchapp) and the exact trigger remain unconfirmed. Do not treat the correction below as proof of the reported reset's
 cause, and do not ask the owner to repeat the installation to test it.
 
-The public download page and index carry a warning. Existing artifacts remain
-available for investigation; Android lab 8 still contains watchapp 1.3.0. No
+The public download page and index carry a settings-wipe warning. Android and
+watch install buttons and setup instructions were removed from the page; the
+earlier phone-only recommendation is withdrawn. Existing artifact URLs and
+catalog records remain available; this is not a server-wide binary quarantine.
+The publication staging tool now refuses to stage Signal Station while the page
+is marked paused. Android lab 8 still contains watchapp 1.3.0. No
 replacement PBW or APK was published during this investigation.
 
 ## Reproduced failure
@@ -61,8 +66,18 @@ It retains development version 1.3.0 and must not replace the published artifact
 A future release needs its own incremented version, rebuilt Android bundle,
 provenance, and separate acceptance evidence before the warning is removed.
 
-Remaining investigation: distinguish reboot from factory wipe; identify the
+Remaining investigation: identify which app was removed; identify the
 physical watch model/firmware and exact sideload/launch/capture trigger; inspect
 available device logs without reinstalling. The native installer also launches
 after adding a locker entry without waiting for watch synchronization; that
 race is a separate unconfirmed lead, not a diagnosed cause.
+
+## Companion reset call trace after owner clarification
+
+The native Signal Station installer calls locker sideload and then launch; it
+does not call `factoryReset` or firmware sideload. The direct factory-reset call
+found in the companion UI is inside the watch debugging menu's explicit
+confirmation dialog. Firmware downgrade and debug firmware sideload have
+separate recovery-mode paths. This source inspection cannot establish which
+packets the installed companion sent, nor rule out a firmware/transport fault.
+No physical watch was reinstalled, reset, or reflashed during investigation.
