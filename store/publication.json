@@ -1,0 +1,25 @@
+{
+  "title": "Signal Station",
+  "version": "1.1.0",
+  "appId": "37360ca4d9764881bd1d6f4d",
+  "dashboardUrl": "https://developer.repebble.com/dashboard/apps/37360ca4d9764881bd1d6f4d/edit",
+  "storeUrl": "https://apps.repebble.com/37360ca4d9764881bd1d6f4d",
+  "listingVisibility": "Unlisted",
+  "releaseStatus": "Draft",
+  "dashboardSaved": true,
+  "sourceCommit": "dc37e48acfc6018b825c13fa5da045208c191097",
+  "pbwSHA256": "93d76e2a6e58db3bd05e56879bb7bfe11bc173463bc09d23270e71a178be26df",
+  "artifactVerification": "Frozen local PBW verified before upload; dashboard extracted version and six targets. No server download hash comparison claimed.",
+  "screenshots": {
+    "basalt": 0,
+    "chalk": 3,
+    "diorite": 0,
+    "emery": 3,
+    "flint": 0,
+    "gabbro": 0
+  },
+  "mediaEvidence": "Reopened each target panel after save. Chalk and Emery native emulator screenshots; reports explicitly label synthetic data. Optional custom icons and banners not uploaded.",
+  "submissionIncident": "New-app Submit App immediately set listing and release Published without presenting draft controls. Release was immediately marked Draft and listing visibility disabled; both saved states were verified after returning to dashboard.",
+  "physicalValidation": "Not performed",
+  "verifiedAt": "2026-09-09T06:03:48.549252+00:00"
+}
