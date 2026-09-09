@@ -4,8 +4,9 @@ By Luke Steuber. September 9, 2026.
 
 Watch installation is paused following an owner report of a hard reset after
 sideloading. The owner subsequently confirmed erased settings and return to setup, and
-reported needing to delete the app to restore the watch. Which app was deleted
-(the Android companion or watchapp) and the exact trigger remain unconfirmed. Do not treat the correction below as proof of the reported reset's
+reported needing to delete the app to restore the watch. The owner believes
+the deleted app was the Android companion; retain that uncertainty. The exact
+sideload/launch/capture trigger remains unconfirmed. Do not treat the correction below as proof of the reported reset's
 cause, and do not ask the owner to repeat the installation to test it.
 
 The public download page and index carry a settings-wipe warning. Android and
@@ -66,8 +67,7 @@ It retains development version 1.3.0 and must not replace the published artifact
 A future release needs its own incremented version, rebuilt Android bundle,
 provenance, and separate acceptance evidence before the warning is removed.
 
-Remaining investigation: identify which app was removed; identify the
-physical watch model/firmware and exact sideload/launch/capture trigger; inspect
+Remaining investigation: confirm the physical watch model/firmware and exact sideload/launch/capture trigger; inspect
 available device logs without reinstalling. The native installer also launches
 after adding a locker entry without waiting for watch synchronization; that
 race is a separate unconfirmed lead, not a diagnosed cause.
@@ -81,3 +81,33 @@ confirmation dialog. Firmware downgrade and debug firmware sideload have
 separate recovery-mode paths. This source inspection cannot establish which
 packets the installed companion sent, nor rule out a firmware/transport fault.
 No physical watch was reinstalled, reset, or reflashed during investigation.
+
+## Reconnection and recovery trace
+
+After the owner identified the Android companion as the likely removed app,
+read-only inspection of companion commit `b60aa09d` found:
+
+- `AndroidSignalStation` observes connection changes to remove stale runners,
+  cancel an interrupted review, and update watch status. That observer does not
+  install or launch the watchapp on reconnect.
+- `TransportConnector` initializes BlobDB synchronization for a normal-mode
+  connection. On a first connection to this companion, or the watch's
+  `isUnfaithful` flag, `BlobDB.init` clears the databases whose `sendClear` is
+  true before repopulating them from this companion. Those include app records,
+  app configurations, and health parameters. WatchPrefs explicitly opts out.
+  This is broader than installing one watchapp, but is not evidence of a full
+  factory reset or proof that it caused the return to setup.
+- `WatchOnboardingScreen` automatically starts the available firmware update
+  when its connected device is classified as in recovery. Classification in
+  `TransportConnector` includes running recovery firmware, missing recovery
+  firmware where required, or firmware below 3.0. This could affect recovery
+  after a fault; there is no evidence it ran during this incident.
+- Firmware update auto-resume additionally requires a remembered interrupted
+  update, resume capability, and watch-reported partial transfer state. It is
+  not an unconditional update on reconnect.
+
+Removing the Android companion can stop its connection, synchronization, and
+recovery workflows; the report alone cannot distinguish those mechanisms. No
+new causal fix or binary was produced from these leads. The installed device's
+firmware version, event sequence, or retained logs are needed to narrow them
+further. Do not reinstall on the recovered watch to obtain that evidence.
