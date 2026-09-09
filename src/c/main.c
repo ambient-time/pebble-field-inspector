@@ -153,79 +153,83 @@ static time_t day_start(int ago) {
 }
 static void next_snapshot(void) {
   if (!s_collecting || s_snapshot_pending) return;
-  strcpy(s_snapshot,"["); char value[180];
-  int stage=s_stage++;
-  if (stage==0) {
-    if (enabled("watch.battery")) {
-      BatteryChargeState battery=battery_state_service_peek();
-      snprintf(value,sizeof value,"{\"percent\":%u,\"charging\":%s}",battery.charge_percent,battery.is_charging?"true":"false");
-      append_observation("watch.battery",value,"percent","fresh","current",s_collected_at,s_collected_at,false);
-    }
-  } else if (stage>=1 && stage<=16) {
-    // Split each local day across two bounded packets, with no raw minute samples.
-    int ago=(stage-1)/2; bool second=(stage-1)%2;
-    time_t start=day_start(ago),end=ago ? day_start(ago-1) : s_collected_at;
-    const char *period=ago ? "day" : "today";
-#ifdef PBL_HEALTH
-    if (!second) {
-      health_metric("health.steps",HealthMetricStepCount,"steps",period,start,end);
-      health_metric("health.active_seconds",HealthMetricActiveSeconds,"seconds",period,start,end);
-      health_metric("health.distance",HealthMetricWalkedDistanceMeters,"meters",period,start,end);
-      health_metric("health.active_calories",HealthMetricActiveKCalories,"kcal",period,start,end);
-    } else {
-      health_metric("health.resting_calories",HealthMetricRestingKCalories,"kcal",period,start,end);
-      health_metric("health.sleep",HealthMetricSleepSeconds,"seconds",period,start,end);
-      health_metric("health.restful_sleep",HealthMetricSleepRestfulSeconds,"seconds",period,start,end);
-    }
-#else
-    const char *keys[]={"health.steps","health.active_seconds","health.distance","health.active_calories","health.resting_calories","health.sleep","health.restful_sleep"};
-    for (int i=second?4:0;i<(second?7:4);i++) append_observation(keys[i],"null","","unavailable",period,start,end,true);
-#endif
-  } else if (stage==17) {
-#ifdef PBL_HEALTH
-    if (enabled("health.heart_rate")) {
-      HealthServiceAccessibilityMask mask=health_service_metric_accessible(HealthMetricHeartRateBPM,s_collected_at-60,s_collected_at);
-      HealthValue bpm=health_service_peek_current_value(HealthMetricHeartRateBPM);
-      snprintf(value,sizeof value,"%ld",(long)bpm);
-      append_observation("health.heart_rate",bpm>0 && (mask & HealthServiceAccessibilityMaskAvailable) ? value : "null","bpm",bpm>0 && (mask & HealthServiceAccessibilityMaskAvailable) ? "timestamp_unknown" : (mask & HealthServiceAccessibilityMaskNoPermission) ? "permission_denied" : "unavailable","current",s_collected_at,s_collected_at,false);
-    }
-    if (enabled("health.activity")) {
-      HealthServiceAccessibilityMask mask=health_service_any_activity_accessible(HealthActivityMaskAll,s_collected_at-60,s_collected_at);
-      snprintf(value,sizeof value,"%lu",(unsigned long)health_service_peek_current_activities());
-      append_observation("health.activity",mask & HealthServiceAccessibilityMaskAvailable ? value : "null","activity_bitmask",access_status(mask),"current",s_collected_at,s_collected_at,false);
-    }
-#else
-    append_observation("health.heart_rate","null","bpm","unavailable","current",s_collected_at,s_collected_at,false);
-    append_observation("health.activity","null","activity_bitmask","unavailable","current",s_collected_at,s_collected_at,false);
-#endif
-  } else if (stage==18) {
-#ifdef PBL_HEALTH
-    s_sleep_start=s_sleep_end=0;
-    if (enabled("health.sleep") || enabled("health.restful_sleep")) health_service_activities_iterate(HealthActivitySleep,s_collected_at-48*3600,s_collected_at,HealthIterationDirectionPast,sleep_episode,NULL);
-    if (s_sleep_end) {
-      health_metric("health.sleep",HealthMetricSleepSeconds,"seconds","last_completed_sleep_2h_heuristic",s_sleep_start,s_sleep_end);
-      health_metric("health.restful_sleep",HealthMetricSleepRestfulSeconds,"seconds","last_completed_sleep_2h_heuristic",s_sleep_start,s_sleep_end);
-    } else {
+  // Disabled sources must not consume another stack frame per empty batch.
+  while (s_collecting && !s_snapshot_pending) {
+    strcpy(s_snapshot,"["); char value[180];
+    int stage=s_stage++;
+    if (stage==0) {
+      if (enabled("watch.battery")) {
+        BatteryChargeState battery=battery_state_service_peek();
+        snprintf(value,sizeof value,"{\"percent\":%u,\"charging\":%s}",battery.charge_percent,battery.is_charging?"true":"false");
+        append_observation("watch.battery",value,"percent","fresh","current",s_collected_at,s_collected_at,false);
+      }
+    } else if (stage>=1 && stage<=16) {
+      // Split each local day across two bounded packets, with no raw minute samples.
+      int ago=(stage-1)/2; bool second=(stage-1)%2;
+      time_t start=day_start(ago),end=ago ? day_start(ago-1) : s_collected_at;
+      const char *period=ago ? "day" : "today";
+  #ifdef PBL_HEALTH
+      if (!second) {
+        health_metric("health.steps",HealthMetricStepCount,"steps",period,start,end);
+        health_metric("health.active_seconds",HealthMetricActiveSeconds,"seconds",period,start,end);
+        health_metric("health.distance",HealthMetricWalkedDistanceMeters,"meters",period,start,end);
+        health_metric("health.active_calories",HealthMetricActiveKCalories,"kcal",period,start,end);
+      } else {
+        health_metric("health.resting_calories",HealthMetricRestingKCalories,"kcal",period,start,end);
+        health_metric("health.sleep",HealthMetricSleepSeconds,"seconds",period,start,end);
+        health_metric("health.restful_sleep",HealthMetricSleepRestfulSeconds,"seconds",period,start,end);
+      }
+  #else
+      const char *keys[]={"health.steps","health.active_seconds","health.distance","health.active_calories","health.resting_calories","health.sleep","health.restful_sleep"};
+      for (int i=second?4:0;i<(second?7:4);i++) append_observation(keys[i],"null","","unavailable",period,start,end,true);
+  #endif
+    } else if (stage==17) {
+  #ifdef PBL_HEALTH
+      if (enabled("health.heart_rate")) {
+        HealthServiceAccessibilityMask mask=health_service_metric_accessible(HealthMetricHeartRateBPM,s_collected_at-60,s_collected_at);
+        HealthValue bpm=health_service_peek_current_value(HealthMetricHeartRateBPM);
+        snprintf(value,sizeof value,"%ld",(long)bpm);
+        append_observation("health.heart_rate",bpm>0 && (mask & HealthServiceAccessibilityMaskAvailable) ? value : "null","bpm",bpm>0 && (mask & HealthServiceAccessibilityMaskAvailable) ? "timestamp_unknown" : (mask & HealthServiceAccessibilityMaskNoPermission) ? "permission_denied" : "unavailable","current",s_collected_at,s_collected_at,false);
+      }
+      if (enabled("health.activity")) {
+        HealthServiceAccessibilityMask mask=health_service_any_activity_accessible(HealthActivityMaskAll,s_collected_at-60,s_collected_at);
+        snprintf(value,sizeof value,"%lu",(unsigned long)health_service_peek_current_activities());
+        append_observation("health.activity",mask & HealthServiceAccessibilityMaskAvailable ? value : "null","activity_bitmask",access_status(mask),"current",s_collected_at,s_collected_at,false);
+      }
+  #else
+      append_observation("health.heart_rate","null","bpm","unavailable","current",s_collected_at,s_collected_at,false);
+      append_observation("health.activity","null","activity_bitmask","unavailable","current",s_collected_at,s_collected_at,false);
+  #endif
+    } else if (stage==18) {
+  #ifdef PBL_HEALTH
+      s_sleep_start=s_sleep_end=0;
+      if (enabled("health.sleep") || enabled("health.restful_sleep")) health_service_activities_iterate(HealthActivitySleep,s_collected_at-48*3600,s_collected_at,HealthIterationDirectionPast,sleep_episode,NULL);
+      if (s_sleep_end) {
+        health_metric("health.sleep",HealthMetricSleepSeconds,"seconds","last_completed_sleep_2h_heuristic",s_sleep_start,s_sleep_end);
+        health_metric("health.restful_sleep",HealthMetricSleepRestfulSeconds,"seconds","last_completed_sleep_2h_heuristic",s_sleep_start,s_sleep_end);
+      } else {
+        append_observation("health.sleep","null","seconds","unavailable","last_completed_sleep_2h_heuristic",s_collected_at-48*3600,s_collected_at,false);
+        append_observation("health.restful_sleep","null","seconds","unavailable","last_completed_sleep_2h_heuristic",s_collected_at-48*3600,s_collected_at,false);
+      }
+  #else
       append_observation("health.sleep","null","seconds","unavailable","last_completed_sleep_2h_heuristic",s_collected_at-48*3600,s_collected_at,false);
-      append_observation("health.restful_sleep","null","seconds","unavailable","last_completed_sleep_2h_heuristic",s_collected_at-48*3600,s_collected_at,false);
+  #endif
+    } else if (stage==19) {
+      if (s_sampling) { s_stage--; return; }
+      snprintf(value,sizeof value,"{\"samples\":%lu,\"mean_x\":%ld,\"mean_y\":%ld,\"mean_z\":%ld,\"peak_abs_axis\":%d}",(unsigned long)s_motion.count,(long)(s_motion.count?s_motion.x/(int)s_motion.count:0),(long)(s_motion.count?s_motion.y/(int)s_motion.count:0),(long)(s_motion.count?s_motion.z/(int)s_motion.count:0),s_motion.peak);
+      append_observation("watch.motion",s_motion.count?value:"null","mg",s_motion.count?"fresh":"unavailable","5_second_sample",s_collected_at,s_collected_at+5,false);
+      snprintf(value,sizeof value,"%ld",(long)(((TRIG_MAX_ANGLE-s_compass.magnetic_heading)*360LL/TRIG_MAX_ANGLE)%360));
+      bool calibrated=s_compass.compass_status==CompassStatusCalibrated;
+      append_observation("watch.compass",calibrated?value:"null","degrees_magnetic_clockwise",calibrated?"fresh":s_compass.compass_status==CompassStatusCalibrating?"calibrating":"unavailable","current",s_collected_at,s_collected_at+5,false);
     }
-#else
-    append_observation("health.sleep","null","seconds","unavailable","last_completed_sleep_2h_heuristic",s_collected_at-48*3600,s_collected_at,false);
-#endif
-  } else if (stage==19) {
-    if (s_sampling) { s_stage--; return; }
-    snprintf(value,sizeof value,"{\"samples\":%lu,\"mean_x\":%ld,\"mean_y\":%ld,\"mean_z\":%ld,\"peak_abs_axis\":%d}",(unsigned long)s_motion.count,(long)(s_motion.count?s_motion.x/(int)s_motion.count:0),(long)(s_motion.count?s_motion.y/(int)s_motion.count:0),(long)(s_motion.count?s_motion.z/(int)s_motion.count:0),s_motion.peak);
-    append_observation("watch.motion",s_motion.count?value:"null","mg",s_motion.count?"fresh":"unavailable","5_second_sample",s_collected_at,s_collected_at+5,false);
-    snprintf(value,sizeof value,"%ld",(long)(((TRIG_MAX_ANGLE-s_compass.magnetic_heading)*360LL/TRIG_MAX_ANGLE)%360));
-    bool calibrated=s_compass.compass_status==CompassStatusCalibrated;
-    append_observation("watch.compass",calibrated?value:"null","degrees_magnetic_clockwise",calibrated?"fresh":s_compass.compass_status==CompassStatusCalibrating?"calibrating":"unavailable","current",s_collected_at,s_collected_at+5,false);
+    if (strlen(s_snapshot)+2>=sizeof s_snapshot) { cancel_turn("Watch readings exceeded their limit."); return; }
+    strcat(s_snapshot,"]"); s_snapshot_complete=stage>=19;
+    if (strlen(s_snapshot)==2 && !s_snapshot_complete) continue;
+    s_snapshot_pending=true;
+    if (s_snapshot_complete) s_collecting=false;
+    flush(NULL);
+    return;
   }
-  if (strlen(s_snapshot)+2>=sizeof s_snapshot) { cancel_turn("Watch readings exceeded their limit."); return; }
-  strcat(s_snapshot,"]"); s_snapshot_complete=stage>=19;
-  if (strlen(s_snapshot)==2 && !s_snapshot_complete) { next_snapshot(); return; }
-  s_snapshot_pending=true;
-  if (s_snapshot_complete) s_collecting=false;
-  flush(NULL);
 }
 static void sample_done(void *unused) { s_sample_timer=NULL; stop_sampling(); if (s_collecting && s_stage==19) next_snapshot(); }
 static void collect(uint32_t id) {

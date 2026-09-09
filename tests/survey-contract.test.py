@@ -92,3 +92,60 @@ with tempfile.TemporaryDirectory() as tmp:
     binary = Path(tmp) / 'buttons'
     subprocess.run(['cc', '-std=c99', '-Wall', '-Werror', str(c), '-o', str(binary)], check=True)
     subprocess.run([str(binary)], check=True)
+
+# Exercise the real batch walker with sparse source selections. Instrument calls
+# so an empty batch must advance without nesting another watch stack frame.
+walker = source[source.index('static void next_snapshot(void) {'):source.index('static void sample_done(')]
+program = r'''#include <assert.h>
+#include <stdbool.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <string.h>
+#include <time.h>
+#include "signal_math.h"
+static void next_snapshot(void);
+static int depth, peak, sends;
+void __attribute__((no_instrument_function)) __cyg_profile_func_enter(void *fn, void *caller) {
+  if (fn == (void *)next_snapshot) { depth++; if(depth>peak)peak=depth; }
+}
+void __attribute__((no_instrument_function)) __cyg_profile_func_exit(void *fn, void *caller) {
+  if (fn == (void *)next_snapshot) depth--;
+}
+static bool s_collecting, s_snapshot_pending, s_snapshot_complete, s_sampling;
+static int s_stage;
+static char s_snapshot[1900];
+static const char *selection;
+static time_t s_collected_at;
+static SignalMotion s_motion;
+static struct { int magnetic_heading, compass_status; } s_compass;
+enum { CompassStatusCalibrated, CompassStatusCalibrating };
+#define TRIG_MAX_ANGLE 65536
+static bool enabled(const char *key) { return !strcmp(selection,key); }
+typedef struct { unsigned charge_percent; bool is_charging; } BatteryChargeState;
+static BatteryChargeState battery_state_service_peek(void) { return (BatteryChargeState){50,false}; }
+static time_t day_start(int ago) { return s_collected_at-ago*86400; }
+static void append_observation(const char *key,const char *value,const char *unit,const char *status,const char *period,time_t start,time_t end,bool date) {
+  if(enabled(key))strcat(s_snapshot,"{}");
+}
+static void cancel_turn(const char *message) { assert(false); }
+static void flush(void *unused) { sends++; }
+''' + walker + r'''
+static void run(const char *key, int expected) {
+  selection=key;depth=peak=sends=s_stage=0;s_collecting=true;s_snapshot_pending=false;s_sampling=false;
+  next_snapshot();
+  while(s_collecting) { assert(s_snapshot_pending);s_snapshot_pending=false;next_snapshot(); }
+  assert(sends==expected && s_stage==20 && s_snapshot_complete && peak==1);
+}
+int main(void) {
+  run("",1);run("watch.battery",2);run("watch.motion",1);run("health.steps",9);
+  selection="watch.motion";s_stage=19;s_collecting=true;s_snapshot_pending=false;s_sampling=true;
+  next_snapshot();assert(s_stage==19 && !s_snapshot_pending);
+  s_sampling=false;next_snapshot();assert(s_stage==20 && s_snapshot_pending && !s_collecting);
+  puts("PASS sparse capture uses one stack frame, preserves batches and waits for sampling");
+}
+'''
+with tempfile.TemporaryDirectory() as tmp:
+    c=Path(tmp)/'capture.c'; c.write_text(program)
+    binary=Path(tmp)/'capture'
+    subprocess.run(['cc','-std=c99','-Wall','-Werror','-finstrument-functions','-I',str(root/'src/c'),str(c),'-o',str(binary)],check=True)
+    subprocess.run([str(binary)],check=True)
