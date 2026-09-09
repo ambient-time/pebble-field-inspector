@@ -1,0 +1,59 @@
+{
+  "request_id": 45,
+  "observations": [
+    {
+      "key": "health.steps",
+      "source": "watch",
+      "value": 4321,
+      "unit": "steps",
+      "collectedAt": 1788886800000,
+      "status": "fresh",
+      "period": "today",
+      "measuredAt": 1788886800000,
+      "windowStart": 1788850800000,
+      "windowEnd": 1788886800000,
+      "date": "2026-09-08"
+    },
+    {
+      "key": "health.restful_sleep",
+      "source": "watch",
+      "value": null,
+      "unit": "seconds",
+      "collectedAt": 1788886800000,
+      "status": "permission_denied",
+      "period": "day",
+      "measuredAt": 1788850800000,
+      "windowStart": 1788764400000,
+      "windowEnd": 1788850800000,
+      "date": "2026-09-07"
+    },
+    {
+      "key": "watch.motion",
+      "source": "watch",
+      "value": {
+        "samples": 50,
+        "mean_x": 20,
+        "mean_y": -30,
+        "mean_z": 998,
+        "peak_abs_axis": 1200
+      },
+      "unit": "mg",
+      "collectedAt": 1788886800000,
+      "status": "fresh",
+      "period": "5_second_sample",
+      "measuredAt": 1788886805000,
+      "windowStart": 1788886800000,
+      "windowEnd": 1788886805000
+    },
+    {
+      "key": "health.heart_rate",
+      "source": "watch",
+      "value": 72,
+      "unit": "bpm",
+      "collectedAt": 1788886800000,
+      "status": "timestamp_unknown",
+      "period": "current"
+    }
+  ],
+  "complete": true
+}

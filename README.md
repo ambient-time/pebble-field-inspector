@@ -1,72 +1,62 @@
-# Field Inspector
+# Signal Station
 
-A paused field-assistant experiment for Pebble. Press a button, ask a question,
-and read a short answer on the wrist. The source includes experimental speaker
-playback, but the tested Time 2 speech was too choppy and quiet for use.
+Speak a question, survey the sources you choose, and read a short answer on your
+Pebble. Signal Station is the text-only successor to Field Inspector, by Luke
+Steuber. It requires the matching experimental Android companion.
 
-**Parked September 7, 2026.** The working note sounds, watch interface, transport,
-tests, and companion fork are preserved for possible reuse. No further voice
-development is scheduled. See the [experiment handoff](docs/experiment-handoff.md).
+## On your wrist
 
-By Luke Steuber.
+- **Ask** starts watch dictation. The phone returns the answer as readable text.
+- **Survey** collects the sources enabled in the phone settings and sends that
+  snapshot for analysis. Nothing starts scanning continuously.
+- **Latest report** opens the last received text without another provider request.
+- **New session** starts a fresh conversation. Saved history is managed on the phone.
+- **Phone settings** directs you to native provider and source configuration.
 
-The backlight stays on while Field Inspector is open and returns to automatic
-control when the app exits.
-The idle screen has a sweeping radar dial. A moving status line accompanies
-requests; answer text stays still. Animation pauses when the app loses focus.
+Use Up/Down to move or scroll, Select to choose, and hold Select to ask from a
+report. Back stops active work, returns to the menu, then exits. Cancelled work
+cannot replace the previous report. Text replies are limited to 900 UTF-8 bytes;
+scrolling retains the full received report.
 
-## First mission
+## Phone setup
 
-1. Install `field-inspector.pbw` using the paired Pebble phone app. Keep the phone connected.
-2. Try the interface first: hold Down for the field manual, then press Select for the labeled demo. Use Up/Down to scroll and Back to leave.
-3. Open Field Inspector's phone settings. Enter the installation token supplied by the server operator and save. The default endpoint is `https://api.dr.eamer.dev/pebble-inspector/v1/inspect`. If you run the server, follow [installation tokens](server/README.md#installation-tokens).
-4. From the main screen, press Select to dictate a short question, confirm the transcript, and wait for the answer. Up/Down scroll; Back stops a request or speech and keeps the last answer readable.
-5. Hold Up to replay the last reply. The phone keeps it only for the current companion session; after a restart, ask again or try the demo.
+Install the matching Signal Station lab companion, connect your watch, and select
+your recognition and answer providers in its native settings. Provider keys stay
+in protected phone storage. Watch settings never open a web form for keys.
+Stock recognition availability and app-specific OpenAI recognition are separate
+from the answer provider. A provider or permission failure stays visible rather
+than silently switching services.
 
-The demo needs a connected phone, but no installation token, internet connection, or model request. It sends no question to a server. On speaker-equipped watches it plays a synthetic tone, not speech. A successful demo checks the watch/phone path; it does not establish that dictation or the endpoint is ready.
+Choose the sources to include before using Survey. The phone owns Bluetooth,
+Wi-Fi, location, and phone-sensor collection. The watch can contribute battery,
+a five-second motion summary, calibrated magnetic heading, and available health
+measurements. Motion samples affected by watch vibration are excluded.
 
-For a separate speaker check, open Help and hold Up to play three rising notes
-entirely on the watch. Outside Help, hold Up still replays the last reply.
-Three-note playback was heard on Time 2. The original 8-bit stream was silent;
-the later 16-bit playback experiment was audible but very choppy and quiet.
-Conversational speech did not meet acceptance.
+Health aggregates cover today and seven previous complete local calendar days:
+steps, active seconds, distance, active/resting calories, sleep, and restful sleep.
+Current activity and available heart rate are separate observations. Heart-rate
+peek timestamps are unknown and are labelled accordingly. Missing measurements
+are unavailable, never fabricated zeroes.
 
-## If a mission stalls
+The last-sleep view uses the latest completed sleep episode lasting at least two
+hours in the preceding 48 hours. This is an explicit main-sleep heuristic;
+start/end times travel with it. It cannot establish sleep quality or a diagnosis.
+Daily windows follow local midnights, including daylight-saving transitions.
 
-| What you see | Next action |
-|---|---|
-| Phone setup needed or token rejected | Open phone settings, check the token and HTTPS endpoint, save, then ask again. A token is private to your installation. |
-| Demo will not load | Reconnect the paired phone and reopen Field Inspector before trying the demo again. |
-| Dictation fails before confirmation | Check the companion app's speech service and internet connection. The demo can still check buttons and display. |
-| Text arrives without speech | Read with Up/Down. On Time 2 or 2 Duo, check Voice in phone settings and the watch's speaker mute. |
-| Service timeout or connection lost | Back stops the turn. Restore the connection, then Select starts a new question; it does not resend the previous one automatically. |
-| No saved reply | The companion session has no cached answer. Ask a question or use the demo. |
+## Compatibility and evidence
 
-## Watches
+The watchapp retains UUID `e2fd86ec-dfb8-460c-afc1-ebe4d071657a` and builds for
+Basalt, Chalk, Diorite, Emery, Flint, and Gabbro. Microphone and health availability
+depend on the model, permissions, firmware, and companion. Round displays keep
+their text within an inset reading area. The screen uses system backlight behavior
+and stationary text; it does not play speech or keep the backlight forced on.
 
-| Watch | Target | Reply |
-|---|---|---|
-| Pebble Time / Time Steel | Basalt | Text |
-| Pebble Time Round | Chalk | Text |
-| Pebble 2 / 2 SE | Diorite | Text |
-| Pebble Time 2 | Emery | Text and optional speaker |
-| Pebble 2 Duo | Flint | Text and optional speaker |
-| Pebble Round 2 | Gabbro | Text |
+Version 1.1.0 builds and protocol tests are documented in
+[Signal Station validation](docs/signal-station-validation.md).
+Physical pairing, recognition, survey delivery, permission behavior, and locked-
+phone operation require a named-device run; building does not establish them.
 
-Round screens have their own safe text area. The application respects the system's speaker mute setting. Dictation requires the phone's supported speech service and a working connection; microphone availability alone does not guarantee that dictation is configured.
-
-## How replies work
-
-The Pebble dictation service provides the confirmed transcript. The phone sends that text to a restricted Field Inspector endpoint. The server requests a short language-model reply through the existing Dreamer gateway, then optionally converts generated speech to the mono PCM format accepted by the watch. Audio travels in acknowledged chunks with cancellation and backpressure.
-
-The installation token grants access only to this bounded question-and-reply service. Provider credentials and the broader gateway credential stay on the server. Each installation is limited to eight requests per minute and sixty per UTC day. The server stores token hashes and usage counters; it does not store questions, replies, or audio. The gateway and speech providers have their own data handling policies. There is no background recording, location lookup, or automatic tool execution.
-
-The assistant has no live search or sensor access. It should say when it lacks current information. Short replies and text fallback are deliberate: Bluetooth throughput and a tiny watch speaker limit conversational audio.
-
-See [BUILD.md](BUILD.md) for builds and verification, and [server/README.md](server/README.md) for operating the restricted endpoint.
-
-The separate Pixel 9a voice experiment starts from this 1.0.1 baseline. Its
-[approved plan](docs/voice-experiment-plan.md),
-[setup and recovery guide](docs/inspector-lab-setup.md), and
-[device record](docs/device-validation.md) track the native OpenAI recognition
-and later direct-phone work. Those additions have not passed their hardware gates.
+See [BUILD.md](BUILD.md) for reproducible checks. The old speech experiment and
+recovery artifacts remain preserved in [the historical handoff](docs/experiment-handoff.md).
+Its speaker-performance gates do not apply to this text-only successor. The old
+server source is retained for recovery, and is not a Signal Station fallback.

@@ -1,75 +1,48 @@
 'use strict';
-var Clay = require('./vendor/pebble-clay');
 var protocol = require('./protocol');
-var clay = new Clay(require('./config.json'), null, {autoHandleEvents:false});
 var queue = [], sending = false;
-
 function flush() {
   if (sending || !queue.length) return;
   sending = true;
   var job = queue.shift();
+  if (job.valid && !job.valid()) { sending = false; flush(); return; }
   Pebble.sendAppMessage(job.packet, function () {
-    sending = false;
-    job.done();
-    flush();
+    sending = false; job.done(); flush();
   }, function () {
-    sending = false;
-    job.failed();
-    flush();
+    sending = false; job.failed(); flush();
   });
 }
-function loadSettings() {
-  try { return JSON.parse(localStorage.getItem('clay-settings') || '{}'); }
-  catch (e) { return {}; }
-}
 var client = protocol.createClient({
-  settings:loadSettings,
-  send:function (packet, done, failed) { queue.push({packet:packet, done:done, failed:failed}); flush(); },
-  fetchJson:function (endpoint, token, body, done) {
+  send:function (packet, done, failed, valid) { queue.push({packet:packet, done:done, failed:failed, valid:valid}); flush(); },
+  request:function (method, endpoint, body, done) {
     var xhr, finished = false;
-    function finish(error, data) { if (finished) return; finished = true; done(error, data); }
-    function stop() {
-      finished = true;
-      if (xhr) { try { xhr.abort(); } catch (e) { /* Already closed or not opened. */ } }
-    }
+    function finish(err, data) { if (!finished) { finished = true; done(err, data); } }
+    function stop() { finished = true; if (xhr) { try { xhr.abort(); } catch (_) {} } }
+    // The matching companion intercepts this reserved address; no relay fallback.
+    if (endpoint.indexOf(protocol.BASE) !== 0) { finish('Invalid native bridge address.'); return stop; }
     try {
-      xhr = new XMLHttpRequest();
-      xhr.open('POST', endpoint, true);
-      xhr.timeout = 105000;
+      xhr = new XMLHttpRequest(); xhr.open(method, endpoint, true); xhr.timeout = 10000;
       xhr.setRequestHeader('Content-Type', 'application/json');
-      xhr.setRequestHeader('Authorization', 'Bearer ' + token);
       xhr.onload = function () {
-        if (xhr.responseText.length > 190000) return finish('Service reply is too large. Please retry.');
-        var data;
-        try { data = JSON.parse(xhr.responseText); } catch (e) { return finish('Invalid service reply. Please retry.'); }
-        if (xhr.status === 401 || xhr.status === 403) return finish('Installation token rejected. Open phone settings.');
-        if (xhr.status === 429) return finish('Too many requests. Wait a moment, then retry.');
-        if (xhr.status < 200 || xhr.status >= 300) return finish('Service unavailable. Please try again later.');
-        finish(null, data);
+        if (xhr.responseText.length > 65536) return finish('Companion response is too large.');
+        if (xhr.status < 200 || xhr.status >= 300) return finish('Check Signal Station settings in the lab companion.');
+        var value; try { value = xhr.responseText ? JSON.parse(xhr.responseText) : {}; }
+        catch (_) { return finish('Invalid companion response.'); }
+        finish(null, value);
       };
-      xhr.onerror = function () { finish('Phone has no service connection. Try again.'); };
-      xhr.ontimeout = function () { finish('Service timed out. Please try again.'); };
-      xhr.send(JSON.stringify(body));
-    } catch (e) {
-      // Exception strings can contain the URL or credential. Send fixed copy.
-      finish('Could not start request. Check endpoint and token in phone settings.');
-      stop();
-    }
+      xhr.onerror = xhr.ontimeout = function () { finish('Open Signal Station in the matching lab companion.'); };
+      xhr.send(body ? JSON.stringify(body) : null);
+    } catch (_) { finish('Open Signal Station in the matching lab companion.'); }
     return stop;
   }
 });
 Pebble.addEventListener('ready', function () { client.sync(); });
 Pebble.addEventListener('appmessage', function (event) { client.handle(event && event.payload); });
-Pebble.addEventListener('showConfiguration', function () { Pebble.openURL(clay.generateUrl()); });
-Pebble.addEventListener('webviewclosed', function (event) {
-  if (!event || !event.response || event.response === 'CANCELLED') return;
+Pebble.addEventListener('showConfiguration', function () { client.settings(); });
+Pebble.addEventListener('configmessage', function (event) {
+  if (!event || !event.data) return;
   try {
-    // false disables AppMessage conversion: endpoint and token stay phone-only.
-    clay.getSettings(event.response, false);
-    client.cancel();
-    client.sync();
-  } catch (e) {
-    // Do not log the configuration URL or values; they include a private token.
-    console.log('Field Inspector: settings could not be read.');
-  }
+    client.configuration(typeof event.data === 'string' ? JSON.parse(event.data) : event.data);
+    if (event.respond) event.respond({accepted:true});
+  } catch (_) { if (event.respond) event.respond({accepted:false}); }
 });

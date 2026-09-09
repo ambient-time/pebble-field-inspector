@@ -1,574 +1,399 @@
-// Field Inspector — Luke Steuber. Button-led dictation and readable replies.
+// Signal Station — Luke Steuber. Speak, survey, and read.
 #include <pebble.h>
-#include "audio_buffer.h"
-#include "pcm_output.h"
-#define PERSIST_REQUEST_ID 1
-#define PERSIST_CONFIGURED 2
-#define PERSIST_VOICE 3
-#define PERSIST_VOLUME 4
+#include "signal_math.h"
 #define TEXT_CAP 1024
-
-typedef enum { STATE_IDLE, STATE_DICTATING, STATE_WAITING, STATE_LOADING, STATE_SPEAKING, STATE_READY, STATE_ERROR } State;
+#define SNAPSHOT_CAP 1900
+#define PERSIST_REQUEST_ID 1
+typedef enum { VIEW_MENU, VIEW_READER, VIEW_HELP, VIEW_WAIT, VIEW_DICTATION } View;
 static Window *s_window;
-static Layer *s_canvas;
-static Layer *s_body_clip;
-static void update_body_layout(void);
-static State s_state = STATE_IDLE;
-static bool s_configured, s_voice = true, s_help, s_demo;
-static uint8_t s_volume = 65;
-static uint32_t s_request_id;
-static char s_answer[TEXT_CAP], s_status[128], s_notice_text[TEXT_CAP + 160];
-static bool s_notice;
-static AppTimer *s_animation;
-static uint16_t s_phase;
-static bool s_focused = true;
-static int16_t s_scroll, s_scroll_max;
-static AppTimer *s_timeout;
-static AppTimer *s_request_timer;
-static bool s_request_pending;
-static char s_request_kind[12], s_prompt[401];
-static void dispatch_request(void *data);
-static uint32_t s_completed_sequence;
-static bool s_ack_pending;
-static uint32_t s_ack_sequence;
+static Layer *s_canvas, *s_body;
+static View s_view;
+static char s_answer[TEXT_CAP], s_status[160], s_display[TEXT_CAP+200], s_prompt[401];
+static char s_enabled[900], s_snapshot[SNAPSHOT_CAP], s_kind[16];
+static bool s_configured, s_confirm, s_connected, s_collecting, s_sampling, s_phone_record;
+static int s_menu, s_scroll, s_scroll_max, s_stage;
+static uint32_t s_request_id, s_answer_id, s_cancel_id, s_ack_id;
+static uint32_t s_collection_id;
+static bool s_request_pending, s_ready_pending, s_clear_pending, s_settings_pending, s_snapshot_pending;
+static bool s_outbox_busy, s_snapshot_complete;
+static int s_outbox_kind, s_retries;
+static uint32_t s_outbox_id;
+static AppTimer *s_outbox_timer, *s_timeout_timer, *s_sample_timer;
+static SignalMotion s_motion;
+static CompassHeadingData s_compass;
+static time_t s_collected_at;
 #ifdef PBL_MICROPHONE
 static DictationSession *s_dictation;
 #endif
-#ifdef PBL_SPEAKER
-static FiAudio s_audio;
-static uint8_t s_pending[FI_AUDIO_CHUNK];
-static uint16_t s_pending_size;
-static uint32_t s_pending_sequence;
-static AppTimer *s_pump;
-static bool s_stream_started, s_stream_draining;
-static bool s_tone_test;
-static uint32_t s_written;
-static uint8_t s_peak;
-static uint8_t s_pcm[FI_AUDIO_CHUNK * 4];
-static uint16_t s_pcm_size, s_pcm_offset;
-#endif
-
-static void redraw(void) { if (s_canvas) { update_body_layout(); layer_mark_dirty(s_canvas); if (s_body_clip) layer_mark_dirty(s_body_clip); } }
-static bool busy(void) { return s_state == STATE_DICTATING || s_state == STATE_WAITING || s_state == STATE_LOADING || s_state == STATE_SPEAKING; }
-static bool speaker_available(void) {
-#ifdef PBL_SPEAKER
-  return true;
-#else
-  return false;
-#endif
+static const char *s_items[] = {"Ask", "Survey", "Latest report", "New session", "Phone settings", "Help"};
+static void redraw(void);
+static void flush(void *unused);
+static void next_snapshot(void);
+static void ask(void);
+static bool busy(void) { return s_view == VIEW_WAIT || s_view == VIEW_DICTATION; }
+static bool enabled(const char *key) {
+  char quoted[64]; snprintf(quoted, sizeof quoted, "\"%s\"", key);
+  return strstr(s_enabled, quoted) != NULL;
 }
-static bool speaker_muted(void) {
-#ifdef PBL_SPEAKER
-  return speaker_is_muted();
-#else
-  return true;
-#endif
+static void stop_sampling(void) {
+  if (s_sample_timer) { app_timer_cancel(s_sample_timer); s_sample_timer = NULL; }
+  if (s_sampling) { accel_data_service_unsubscribe(); compass_service_unsubscribe(); s_sampling = false; }
 }
-static void clear_timeout(void) { if (s_timeout) { app_timer_cancel(s_timeout); s_timeout = NULL; } }
-static void stop_audio(void) {
-#ifdef PBL_SPEAKER
-  if (s_pump) { app_timer_cancel(s_pump); s_pump = NULL; }
-  // Update state before stopping: finished callbacks must not revive this turn.
-  s_stream_started = s_stream_draining = false;
-  s_tone_test = false;
-  s_written = 0; s_peak = 0;
-  s_pcm_size = s_pcm_offset = 0;
-  s_pending_size = 0;
-  memset(&s_audio, 0, sizeof s_audio);
-  speaker_stop();
-#endif
-  s_ack_pending = false;
-}
-static void send_cancel(void) {
-  DictionaryIterator *iter;
-  if (app_message_outbox_begin(&iter) != APP_MSG_OK) return;
-  dict_write_cstring(iter, MESSAGE_KEY_RequestType, "cancel");
-  dict_write_uint32(iter, MESSAGE_KEY_RequestId, s_request_id);
-  app_message_outbox_send();
-}
-static void cancel_turn(const char *status) {
-  bool was_busy = busy();
-#ifdef PBL_SPEAKER
-  if (was_busy && s_audio.total) APP_LOG(APP_LOG_LEVEL_INFO, "FieldInspector: stopped request %lu bytes=%lu", (unsigned long)s_request_id, (unsigned long)s_audio.received);
-#endif
-  if (s_request_timer) { app_timer_cancel(s_request_timer); s_request_timer = NULL; }
-  s_request_pending = false;
-  s_state = s_answer[0] ? STATE_READY : STATE_IDLE;
+static void clear_timeout(void) { if (s_timeout_timer) { app_timer_cancel(s_timeout_timer); s_timeout_timer = NULL; } }
+static void cancel_turn(const char *message) {
+  if (busy() || s_collecting) s_cancel_id = s_request_id;
+  s_request_pending = s_snapshot_pending = s_collecting = false;
+  s_phone_record=false;
+  s_view = VIEW_READER;
+  stop_sampling(); clear_timeout();
 #ifdef PBL_MICROPHONE
   if (s_dictation) dictation_session_stop(s_dictation);
 #endif
-  clear_timeout(); stop_audio(); if (was_busy) send_cancel();
-  snprintf(s_status, sizeof s_status, "%s", status);
-  s_notice = s_answer[0] && status[0];
-  if (s_notice) s_scroll = 0;
-  redraw();
-}
-static void fail(const char *message) {
-  s_notice = true;
-  if (s_request_timer) { app_timer_cancel(s_request_timer); s_request_timer = NULL; }
-  s_request_pending = false;
-  s_state = STATE_ERROR;
-  s_scroll = 0;
-  clear_timeout(); stop_audio(); send_cancel();
   snprintf(s_status, sizeof s_status, "%s", message);
-  redraw();
+  s_scroll = 0; flush(NULL); redraw();
 }
-static void timeout(void *data) { s_timeout = NULL; fail("Connection timed out. Select to retry."); }
-static void arm_timeout(uint32_t ms) { clear_timeout(); s_timeout = app_timer_register(ms, timeout, NULL); }
+static void timeout(void *unused) { s_timeout_timer = NULL; cancel_turn("Timed out. Check the phone, then ask again."); }
+static void start_timeout(void) { clear_timeout(); s_timeout_timer = app_timer_register(100000, timeout, NULL); }
 static void next_request(void) {
-  if (s_request_id >= 2147483646) s_request_id = 0;
-  s_request_id++;
-  persist_write_int(PERSIST_REQUEST_ID, (int32_t)s_request_id);
-  s_completed_sequence = 0;
-  s_demo = false; s_notice = false; s_scroll = 0; s_status[0] = '\0';
+  s_request_id = s_request_id >= 2147483646 ? 1 : s_request_id + 1;
+  persist_write_int(PERSIST_REQUEST_ID, s_request_id);
 }
-static void dispatch_request(void *data) {
-  s_request_timer = NULL;
-  if (!s_request_pending || s_state != STATE_WAITING) return;
+static void request(const char *kind, const char *prompt) {
+  if (!s_phone_record) next_request();
+  s_phone_record=false; s_view = VIEW_WAIT; s_scroll = 0;
+  snprintf(s_kind, sizeof s_kind, "%s", kind);
+  signal_utf8_copy(s_prompt, sizeof s_prompt, prompt ? prompt : "");
+  snprintf(s_status, sizeof s_status, "%s", strcmp(kind,"survey") == 0 ? "Surveying selected sources..." : "Asking through the phone...");
+  s_request_pending = true; start_timeout(); flush(NULL); redraw();
+}
+static void retry_flush(void) { if (!s_outbox_timer) s_outbox_timer = app_timer_register(100, flush, NULL); }
+// One in-flight message. Cancel and text acknowledgement always take priority.
+static void flush(void *unused) {
+  s_outbox_timer = NULL;
+  if (s_outbox_busy) return;
+  int kind = s_cancel_id ? 1 : s_ack_id ? 2 : s_clear_pending ? 3 : s_settings_pending ? 4 :
+    s_ready_pending ? 5 : s_request_pending ? 6 : s_snapshot_pending ? 7 : 0;
+  if (!kind) return;
   DictionaryIterator *iter;
-  if (app_message_outbox_begin(&iter) != APP_MSG_OK) {
-    s_request_timer = app_timer_register(100, dispatch_request, NULL); return;
+  if (app_message_outbox_begin(&iter) != APP_MSG_OK) { retry_flush(); return; }
+  s_outbox_kind = kind;
+  s_outbox_id=s_request_id;
+  if (kind == 1) { dict_write_cstring(iter,MESSAGE_KEY_RequestType,"cancel"); dict_write_uint32(iter,MESSAGE_KEY_RequestId,s_cancel_id); }
+  if (kind == 2) { dict_write_uint32(iter,MESSAGE_KEY_RequestId,s_ack_id); dict_write_uint8(iter,MESSAGE_KEY_TextAck,1); }
+  if (kind >= 3 && kind <= 5) dict_write_cstring(iter,MESSAGE_KEY_RequestType,kind==3 ? "clear" : kind==4 ? "settings" : "ready");
+  if (kind == 6) {
+    dict_write_cstring(iter,MESSAGE_KEY_RequestType,s_kind); dict_write_uint32(iter,MESSAGE_KEY_RequestId,s_request_id);
+    if (s_prompt[0]) dict_write_cstring(iter,MESSAGE_KEY_Prompt,s_prompt);
   }
-  dict_write_cstring(iter, MESSAGE_KEY_RequestType, s_request_kind);
-  dict_write_uint32(iter, MESSAGE_KEY_RequestId, s_request_id);
-  dict_write_uint8(iter, MESSAGE_KEY_SpeakerAvailable, speaker_available());
-  dict_write_uint8(iter, MESSAGE_KEY_Muted, speaker_muted());
-  if (s_prompt[0]) dict_write_cstring(iter, MESSAGE_KEY_Prompt, s_prompt);
-  if (app_message_outbox_send() == APP_MSG_OK) s_request_pending = false;
-  else s_request_timer = app_timer_register(100, dispatch_request, NULL);
-}
-static void send_request(const char *kind, const char *prompt) {
-  snprintf(s_request_kind, sizeof s_request_kind, "%s", kind);
-  snprintf(s_prompt, sizeof s_prompt, "%s", prompt ? prompt : "");
-  s_state = STATE_WAITING;
-  APP_LOG(APP_LOG_LEVEL_INFO, "FieldInspector: request %lu %s", (unsigned long)s_request_id, kind);
-  snprintf(s_status, sizeof s_status, "%s", strcmp(kind, "demo") == 0 ? "Loading offline demo..." : "Sending through phone...");
-  s_request_pending = true;
-  arm_timeout(115000);
-  dispatch_request(NULL);
-  redraw();
-}
-static void send_ack(uint32_t sequence) {
-  s_ack_pending = true; s_ack_sequence = sequence;
-  DictionaryIterator *iter;
-  if (app_message_outbox_begin(&iter) != APP_MSG_OK) return;
-  dict_write_uint32(iter, MESSAGE_KEY_RequestId, s_request_id);
-  dict_write_uint32(iter, MESSAGE_KEY_AudioAck, sequence);
-  if (app_message_outbox_send() == APP_MSG_OK) s_ack_pending = false;
-}
-
-#ifdef PBL_SPEAKER
-static void audio_finished(SpeakerFinishReason reason, void *context) {
-  if (s_tone_test) {
-    s_tone_test = false;
-    APP_LOG(APP_LOG_LEVEL_INFO, "FieldInspector: native tone finished reason=%d", (int)reason);
-    s_state = STATE_READY;
-    snprintf(s_status, sizeof s_status, "Tone callback: %d. Was it audible?", (int)reason);
-    redraw();
-    return;
+  if (kind == 7) {
+    dict_write_cstring(iter,MESSAGE_KEY_RequestType,"watch-data"); dict_write_uint32(iter,MESSAGE_KEY_RequestId,s_request_id);
+    dict_write_cstring(iter,MESSAGE_KEY_Snapshot,s_snapshot); dict_write_uint8(iter,MESSAGE_KEY_Complete,s_snapshot_complete);
   }
-  if (!s_stream_started) return;
-  APP_LOG(APP_LOG_LEVEL_INFO, "FieldInspector: audio finished reason=%d received=%lu written=%lu peak=%u", (int)reason, (unsigned long)s_audio.received, (unsigned long)s_written, s_peak);
-  bool drained = s_stream_draining;
-  s_stream_started = s_stream_draining = false;
-  if (reason == SpeakerFinishReasonDone && drained) {
-    clear_timeout(); s_state = STATE_READY;
-    snprintf(s_status, sizeof s_status, "%s", s_demo ? "Demo tone finished" : "Reply finished");
-    redraw();
-  } else if (reason != SpeakerFinishReasonStopped) {
-    fail("Voice interrupted. The text is still here.");
-  }
-}
-static void pump(void *data) {
-  s_pump = NULL;
-  if (!s_audio.total || s_stream_draining) return;
-  if (speaker_is_muted() || !s_voice) { cancel_turn("Voice muted. The text is still here."); return; }
-  if (s_pending_size) {
-    FiAudioResult accepted = fi_audio_accept(&s_audio, s_pending_sequence, s_pending, s_pending_size);
-    if (accepted == FI_AUDIO_OK || accepted == FI_AUDIO_DUPLICATE) {
-      s_pending_size = 0; send_ack(s_pending_sequence);
-    } else if (accepted != FI_AUDIO_FULL) { fail("Voice packet was invalid. Please retry."); return; }
-  }
-  if (!s_stream_started && (s_audio.count >= 4096 || s_audio.ended)) {
-    APP_LOG(APP_LOG_LEVEL_INFO, "FieldInspector: PCM16/16k open volume=%u muted=%d buffered=%u", s_volume, speaker_is_muted(), (unsigned)s_audio.count);
-    if (!speaker_stream_open(SpeakerPcmFormat_16kHz_16bit, s_volume)) { fail("Speaker unavailable. The text is still here."); return; }
-    s_stream_started = true; s_state = STATE_SPEAKING; redraw();
-  }
-  if (s_stream_started && !s_pcm_size && s_audio.count) {
-    uint16_t size = fi_audio_contiguous(&s_audio);
-    if (size > 512) size = 512;
-    s_pcm_size = fi_pcm_expand(s_audio.bytes + s_audio.read, size, s_pcm, sizeof s_pcm);
-    s_pcm_offset = 0;
-    for (uint32_t i = 0; i < size; i++) {
-      int sample = (int8_t)s_audio.bytes[s_audio.read + i];
-      unsigned magnitude = sample < 0 ? -sample : sample;
-      if (magnitude > s_peak) s_peak = magnitude;
-    }
-    if (!s_pcm_size || !fi_audio_consume(&s_audio, size)) { fail("Speaker conversion failed. Text is still here."); return; }
-  }
-  if (s_stream_started && s_pcm_size) {
-    uint32_t remaining = s_pcm_size - s_pcm_offset;
-    uint32_t written = speaker_stream_write(s_pcm + s_pcm_offset, remaining);
-    if (written > remaining) { fail("Speaker error. The text is still here."); return; }
-    s_written += written;
-    s_pcm_offset += written;
-    if (s_pcm_offset == s_pcm_size) s_pcm_size = s_pcm_offset = 0;
-  }
-  if (s_stream_started && !s_audio.count && !s_pcm_size && s_audio.ended) {
-    s_stream_draining = true;
-    speaker_stream_close();
-    return;
-  }
-  if (s_ack_pending) send_ack(s_ack_sequence);
-  s_pump = app_timer_register(20, pump, NULL);
-}
-static void ensure_pump(void) { if (!s_pump) s_pump = app_timer_register(20, pump, NULL); }
-#endif
-
-static bool read_uint(Tuple *tuple, uint32_t *out) {
-  if (!tuple || (tuple->type != TUPLE_UINT && tuple->type != TUPLE_INT)) return false;
-  switch (tuple->length) {
-    case 1: *out = tuple->value->uint8; return true;
-    case 2: *out = tuple->value->uint16; return true;
-    case 4: *out = tuple->value->uint32; return true;
-    default: return false;
-  }
-}
-static void inbox(DictionaryIterator *iter, void *context) {
-  uint32_t value, id;
-#ifdef PBL_SPEAKER
-  uint32_t sequence;
-#endif
-  bool settings = false;
-  if (read_uint(dict_find(iter, MESSAGE_KEY_Configured), &value)) {
-    s_configured = value != 0; persist_write_bool(PERSIST_CONFIGURED, s_configured); settings = true;
-  }
-  if (read_uint(dict_find(iter, MESSAGE_KEY_VoiceEnabled), &value)) {
-    s_voice = value != 0; persist_write_bool(PERSIST_VOICE, s_voice); settings = true;
-  }
-  if (read_uint(dict_find(iter, MESSAGE_KEY_Volume), &value) && value <= 100) {
-    s_volume = value; persist_write_int(PERSIST_VOLUME, value); settings = true;
-  }
-  if (settings) {
-    if (busy()) cancel_turn("Settings saved. Select to ask again.");
-    else snprintf(s_status, sizeof s_status, "%s", s_configured ? "Ready to ask" : "Phone setup needed");
-    redraw();
-  }
-  if (!read_uint(dict_find(iter, MESSAGE_KEY_RequestId), &id) || id != s_request_id) return;
-  if (!busy()) {
-#ifdef PBL_SPEAKER
-    if (s_completed_sequence && dict_find(iter, MESSAGE_KEY_AudioEnd) &&
-        read_uint(dict_find(iter, MESSAGE_KEY_AudioSequence), &sequence) && sequence == s_completed_sequence) send_ack(sequence);
-#endif
-    return;
-  }
-  Tuple *text = dict_find(iter, MESSAGE_KEY_ResponseText);
-  Tuple *status = dict_find(iter, MESSAGE_KEY_StatusText);
-  if (text && text->type == TUPLE_CSTRING && text->length <= TEXT_CAP) {
-    snprintf(s_answer, sizeof s_answer, "%s", text->value->cstring);
-    s_scroll = 0;
-    if (read_uint(dict_find(iter, MESSAGE_KEY_Demo), &value)) s_demo = value != 0;
-    bool audio = read_uint(dict_find(iter, MESSAGE_KEY_AudioExpected), &value) && value;
-    s_state = audio ? STATE_LOADING : STATE_READY;
-    APP_LOG(APP_LOG_LEVEL_INFO, "FieldInspector: reply %lu bytes=%u demo=%d audio=%d", (unsigned long)id, (unsigned)strlen(s_answer), s_demo, audio);
-    if (!audio) clear_timeout(); else arm_timeout(20000);
-    if (status && status->type == TUPLE_CSTRING) {
-      snprintf(s_status, sizeof s_status, "%s", status->value->cstring);
-      s_notice = strcmp(s_status, "Reply ready") != 0 && strcmp(s_status, "OFFLINE DEMO") != 0;
-    }
-    redraw();
-    return;
-  }
-  if (status && status->type == TUPLE_CSTRING) { fail(status->value->cstring); return; }
-#ifdef PBL_SPEAKER
-  if (!s_voice || speaker_is_muted()) { cancel_turn("Voice muted. The text is still here."); return; }
-  Tuple *begin = dict_find(iter, MESSAGE_KEY_AudioBegin);
-  if (begin) {
-    if (!read_uint(dict_find(iter, MESSAGE_KEY_AudioSequence), &sequence) || sequence != 0 || !read_uint(begin, &value) || !value || value > FI_AUDIO_LIMIT) { fail("Voice reply is too large."); return; }
-    // A resent begin packet must never erase audio already accepted.
-    if (s_audio.total) { if (s_audio.total == value) send_ack(0); return; }
-    if (!fi_audio_begin(&s_audio, value)) { fail("Invalid voice stream."); return; }
-    APP_LOG(APP_LOG_LEVEL_INFO, "FieldInspector: audio begin %lu bytes=%lu", (unsigned long)id, (unsigned long)value);
-    arm_timeout(20000); send_ack(0); ensure_pump(); return;
-  }
-  if (!read_uint(dict_find(iter, MESSAGE_KEY_AudioSequence), &sequence)) return;
-  Tuple *chunk = dict_find(iter, MESSAGE_KEY_AudioChunk);
-  if (chunk && chunk->type == TUPLE_BYTE_ARRAY) {
-    FiAudioResult result = fi_audio_accept(&s_audio, sequence, chunk->value->data, chunk->length);
-    if (result == FI_AUDIO_OK || result == FI_AUDIO_DUPLICATE) {
-      arm_timeout(20000); send_ack(sequence);
-    } else if (result == FI_AUDIO_FULL) {
-      if (s_pending_size && s_pending_sequence != sequence) { fail("Voice packet arrived out of order."); return; }
-      memcpy(s_pending, chunk->value->data, chunk->length);
-      s_pending_size = chunk->length; s_pending_sequence = sequence;
-    } else { fail("Voice packet was invalid. Please retry."); return; }
-    ensure_pump();
-  } else if (dict_find(iter, MESSAGE_KEY_AudioEnd)) {
-    FiAudioResult result = fi_audio_end(&s_audio, sequence);
-    if (result != FI_AUDIO_OK && result != FI_AUDIO_DUPLICATE) { fail("Voice reply was incomplete. Text is ready."); return; }
-    s_completed_sequence = sequence;
-    send_ack(sequence); ensure_pump();
-  }
-#endif
+  if (app_message_outbox_send() == APP_MSG_OK) s_outbox_busy = true;
+  else retry_flush();
 }
 static void outbox_sent(DictionaryIterator *iter, void *context) {
-  if (s_ack_pending) send_ack(s_ack_sequence);
-  else if (s_request_pending && !s_request_timer) dispatch_request(NULL);
+  s_outbox_busy = false; s_retries = 0;
+  if (s_outbox_kind == 1) { Tuple *t = dict_find(iter,MESSAGE_KEY_RequestId); if (t && t->value->uint32==s_cancel_id) s_cancel_id=0; }
+  if (s_outbox_kind == 2) { Tuple *t = dict_find(iter,MESSAGE_KEY_RequestId); if (t && t->value->uint32==s_ack_id) s_ack_id=0; }
+  if (s_outbox_kind == 3) s_clear_pending=false;
+  if (s_outbox_kind == 4) s_settings_pending=false;
+  if (s_outbox_kind == 5) s_ready_pending=false;
+  if (s_outbox_kind == 6 && s_outbox_id==s_request_id) s_request_pending=false;
+  if (s_outbox_kind == 7 && s_outbox_id==s_request_id) { s_snapshot_pending=false; if (s_collecting) next_snapshot(); }
+  flush(NULL);
 }
 static void outbox_failed(DictionaryIterator *iter, AppMessageResult reason, void *context) {
-  uint32_t id;
-  // An older turn may fail after Back or replay has started a new request.
-  if (!read_uint(dict_find(iter, MESSAGE_KEY_RequestId), &id) || id != s_request_id) return;
-  if (dict_find(iter, MESSAGE_KEY_AudioAck)) {
-    uint32_t sequence;
-    if (read_uint(dict_find(iter, MESSAGE_KEY_AudioAck), &sequence)) { s_ack_pending = true; s_ack_sequence = sequence; }
-  } else if (busy()) fail("Phone connection lost. Please try again.");
+  s_outbox_busy=false;
+  if (s_outbox_kind>=6 && s_outbox_id!=s_request_id) { s_retries=0; flush(NULL); return; }
+  if (++s_retries <= 3) { retry_flush(); return; }
+  s_retries=0; s_request_pending=s_snapshot_pending=s_collecting=false;
+  // Keep cancellation/acknowledgement pending for reconnect, but do not spin.
+  s_ready_pending=s_clear_pending=s_settings_pending=false;
+  stop_sampling(); clear_timeout(); s_view=VIEW_READER;
+  snprintf(s_status,sizeof s_status,"Phone disconnected. Reconnect, then try again."); redraw();
 }
-static void inbox_dropped(AppMessageResult reason, void *context) { if (busy()) fail("Watch message was lost. Please retry."); }
-static void connection_changed(bool connected) { if (!connected && busy()) fail("Phone disconnected. The last text is kept."); }
-
-#ifdef PBL_MICROPHONE
-static void dictation_done(DictationSession *session, DictationSessionStatus status, char *transcription, void *context) {
-  if (s_state != STATE_DICTATING) return;
-  APP_LOG(APP_LOG_LEVEL_INFO, "FieldInspector: dictation status=%d", (int)status);
-  if (status == DictationSessionStatusSuccess && transcription && transcription[0]) {
-    send_request("inspect", transcription);
-  } else if (status == DictationSessionStatusFailureTranscriptionRejected) {
-    cancel_turn("Question cancelled. Select to ask.");
-  } else if (status == DictationSessionStatusFailureNoSpeechDetected) {
-    fail("No speech heard. Select and speak near the watch.");
-  } else if (status == DictationSessionStatusFailureConnectivityError) {
-    fail("Dictation needs a connected phone and internet.");
-  } else if (status == DictationSessionStatusFailureDisabled) {
-    fail("Dictation is disabled in the phone app.");
-  } else {
-    fail("Dictation could not finish. Please try again.");
+static void inbox_dropped(AppMessageResult reason, void *context) { cancel_turn("Incomplete phone message. Try again."); }
+static void accel(AccelData *samples, uint32_t count) {
+  for (uint32_t i=0; i<count; i++) signal_motion_add(&s_motion,samples[i].x,samples[i].y,samples[i].z,samples[i].did_vibrate);
+}
+static void compass(CompassHeadingData data) { s_compass=data; }
+static void append_observation(const char *key, const char *value, const char *unit, const char *status,
+                               const char *period, time_t from, time_t end, bool date) {
+  if (!enabled(key)) return;
+  size_t n=strlen(s_snapshot); char date_text[40]="", time_fields[120]="";
+  if (date) { char day[16]; strftime(day,sizeof day,"%Y-%m-%d",localtime(&from)); snprintf(date_text,sizeof date_text,",\"date\":\"%s\"",day); }
+  if (strcmp(status,"timestamp_unknown")) snprintf(time_fields,sizeof time_fields,",\"measuredAt\":%ld000,\"windowStart\":%ld000,\"windowEnd\":%ld000",(long)end,(long)from,(long)end);
+  snprintf(s_snapshot+n,sizeof s_snapshot-n,
+    "%s{\"key\":\"%s\",\"source\":\"watch\",\"value\":%s,\"unit\":\"%s\",\"collectedAt\":%ld000,\"status\":\"%s\",\"period\":\"%s\"%s%s}",
+    n>1 ? "," : "",key,value,unit,(long)s_collected_at,status,period,time_fields,date_text);
+}
+#ifdef PBL_HEALTH
+static const char *access_status(HealthServiceAccessibilityMask mask) {
+  if (mask & HealthServiceAccessibilityMaskNoPermission) return "permission_denied";
+  return mask & HealthServiceAccessibilityMaskAvailable ? "fresh" : "unavailable";
+}
+static void health_metric(const char *key, HealthMetric metric, const char *unit, const char *period, time_t start, time_t end) {
+  if (!enabled(key)) return;
+  HealthServiceAccessibilityMask mask=health_service_metric_accessible(metric,start,end);
+  char value[24]="null";
+  if (mask & HealthServiceAccessibilityMaskAvailable) snprintf(value,sizeof value,"%ld",(long)health_service_sum(metric,start,end));
+  append_observation(key,value,unit,access_status(mask),period,start,end,true);
+}
+static time_t s_sleep_start,s_sleep_end;
+static bool sleep_episode(HealthActivity activity,time_t start,time_t end,void *context) {
+  // Latest completed >=2h episode is a documented heuristic, not a diagnosis.
+  if (activity==HealthActivitySleep && end<s_collected_at && end-start>=7200) { s_sleep_start=start; s_sleep_end=end; return false; }
+  return true;
+}
+#endif
+static time_t day_start(int ago) {
+  struct tm day=*localtime(&s_collected_at); day.tm_hour=day.tm_min=day.tm_sec=0; day.tm_mday-=ago; day.tm_isdst=-1;
+  return mktime(&day); // Local calendar days preserve daylight-saving boundaries.
+}
+static void next_snapshot(void) {
+  if (!s_collecting || s_snapshot_pending) return;
+  strcpy(s_snapshot,"["); char value[180];
+  int stage=s_stage++;
+  if (stage==0) {
+    if (enabled("watch.battery")) {
+      BatteryChargeState battery=battery_state_service_peek();
+      snprintf(value,sizeof value,"{\"percent\":%u,\"charging\":%s}",battery.charge_percent,battery.is_charging?"true":"false");
+      append_observation("watch.battery",value,"percent","fresh","current",s_collected_at,s_collected_at,false);
+    }
+  } else if (stage>=1 && stage<=16) {
+    // Split each local day across two bounded packets, with no raw minute samples.
+    int ago=(stage-1)/2; bool second=(stage-1)%2;
+    time_t start=day_start(ago),end=ago ? day_start(ago-1) : s_collected_at;
+    const char *period=ago ? "day" : "today";
+#ifdef PBL_HEALTH
+    if (!second) {
+      health_metric("health.steps",HealthMetricStepCount,"steps",period,start,end);
+      health_metric("health.active_seconds",HealthMetricActiveSeconds,"seconds",period,start,end);
+      health_metric("health.distance",HealthMetricWalkedDistanceMeters,"meters",period,start,end);
+      health_metric("health.active_calories",HealthMetricActiveKCalories,"kcal",period,start,end);
+    } else {
+      health_metric("health.resting_calories",HealthMetricRestingKCalories,"kcal",period,start,end);
+      health_metric("health.sleep",HealthMetricSleepSeconds,"seconds",period,start,end);
+      health_metric("health.restful_sleep",HealthMetricSleepRestfulSeconds,"seconds",period,start,end);
+    }
+#else
+    const char *keys[]={"health.steps","health.active_seconds","health.distance","health.active_calories","health.resting_calories","health.sleep","health.restful_sleep"};
+    for (int i=second?4:0;i<(second?7:4);i++) append_observation(keys[i],"null","","unavailable",period,start,end,true);
+#endif
+  } else if (stage==17) {
+#ifdef PBL_HEALTH
+    if (enabled("health.heart_rate")) {
+      HealthServiceAccessibilityMask mask=health_service_metric_accessible(HealthMetricHeartRateBPM,s_collected_at-60,s_collected_at);
+      HealthValue bpm=health_service_peek_current_value(HealthMetricHeartRateBPM);
+      snprintf(value,sizeof value,"%ld",(long)bpm);
+      append_observation("health.heart_rate",bpm>0 && (mask & HealthServiceAccessibilityMaskAvailable) ? value : "null","bpm",bpm>0 && (mask & HealthServiceAccessibilityMaskAvailable) ? "timestamp_unknown" : (mask & HealthServiceAccessibilityMaskNoPermission) ? "permission_denied" : "unavailable","current",s_collected_at,s_collected_at,false);
+    }
+    if (enabled("health.activity")) {
+      HealthServiceAccessibilityMask mask=health_service_any_activity_accessible(HealthActivityMaskAll,s_collected_at-60,s_collected_at);
+      snprintf(value,sizeof value,"%lu",(unsigned long)health_service_peek_current_activities());
+      append_observation("health.activity",mask & HealthServiceAccessibilityMaskAvailable ? value : "null","activity_bitmask",access_status(mask),"current",s_collected_at,s_collected_at,false);
+    }
+#else
+    append_observation("health.heart_rate","null","bpm","unavailable","current",s_collected_at,s_collected_at,false);
+    append_observation("health.activity","null","activity_bitmask","unavailable","current",s_collected_at,s_collected_at,false);
+#endif
+  } else if (stage==18) {
+#ifdef PBL_HEALTH
+    s_sleep_start=s_sleep_end=0;
+    if (enabled("health.sleep") || enabled("health.restful_sleep")) health_service_activities_iterate(HealthActivitySleep,s_collected_at-48*3600,s_collected_at,HealthIterationDirectionPast,sleep_episode,NULL);
+    if (s_sleep_end) {
+      health_metric("health.sleep",HealthMetricSleepSeconds,"seconds","last_completed_sleep_2h_heuristic",s_sleep_start,s_sleep_end);
+      health_metric("health.restful_sleep",HealthMetricSleepRestfulSeconds,"seconds","last_completed_sleep_2h_heuristic",s_sleep_start,s_sleep_end);
+    } else {
+      append_observation("health.sleep","null","seconds","unavailable","last_completed_sleep_2h_heuristic",s_collected_at-48*3600,s_collected_at,false);
+      append_observation("health.restful_sleep","null","seconds","unavailable","last_completed_sleep_2h_heuristic",s_collected_at-48*3600,s_collected_at,false);
+    }
+#else
+    append_observation("health.sleep","null","seconds","unavailable","last_completed_sleep_2h_heuristic",s_collected_at-48*3600,s_collected_at,false);
+#endif
+  } else if (stage==19) {
+    if (s_sampling) { s_stage--; return; }
+    snprintf(value,sizeof value,"{\"samples\":%lu,\"mean_x\":%ld,\"mean_y\":%ld,\"mean_z\":%ld,\"peak_abs_axis\":%d}",(unsigned long)s_motion.count,(long)(s_motion.count?s_motion.x/(int)s_motion.count:0),(long)(s_motion.count?s_motion.y/(int)s_motion.count:0),(long)(s_motion.count?s_motion.z/(int)s_motion.count:0),s_motion.peak);
+    append_observation("watch.motion",s_motion.count?value:"null","mg",s_motion.count?"fresh":"unavailable","5_second_sample",s_collected_at,s_collected_at+5,false);
+    snprintf(value,sizeof value,"%ld",(long)(((TRIG_MAX_ANGLE-s_compass.magnetic_heading)*360LL/TRIG_MAX_ANGLE)%360));
+    bool calibrated=s_compass.compass_status==CompassStatusCalibrated;
+    append_observation("watch.compass",calibrated?value:"null","degrees_magnetic_clockwise",calibrated?"fresh":s_compass.compass_status==CompassStatusCalibrating?"calibrating":"unavailable","current",s_collected_at,s_collected_at+5,false);
   }
+  if (strlen(s_snapshot)+2>=sizeof s_snapshot) { cancel_turn("Watch readings exceeded their limit."); return; }
+  strcat(s_snapshot,"]"); s_snapshot_complete=stage>=19;
+  if (strlen(s_snapshot)==2 && !s_snapshot_complete) { next_snapshot(); return; }
+  s_snapshot_pending=true;
+  if (s_snapshot_complete) s_collecting=false;
+  flush(NULL);
+}
+static void sample_done(void *unused) { s_sample_timer=NULL; stop_sampling(); if (s_collecting && s_stage==19) next_snapshot(); }
+static void collect(uint32_t id) {
+  if (id==s_collection_id) return;
+  s_collection_id=id;
+  stop_sampling(); s_request_id=id; s_view=VIEW_WAIT; s_collecting=true; s_stage=0;
+  s_collected_at=time(NULL); memset(&s_motion,0,sizeof s_motion); s_compass.compass_status=CompassStatusUnavailable;
+  if (enabled("watch.motion") || enabled("watch.compass")) {
+    s_sampling=true;
+    if (enabled("watch.motion")) { accel_data_service_subscribe(10,accel); accel_service_set_sampling_rate(ACCEL_SAMPLING_10HZ); }
+    if (enabled("watch.compass")) compass_service_subscribe(compass);
+    s_sample_timer=app_timer_register(5000,sample_done,NULL);
+  }
+  snprintf(s_status,sizeof s_status,"Collecting selected watch readings..."); start_timeout(); next_snapshot(); redraw();
+}
+static void inbox(DictionaryIterator *iter,void *context) {
+  Tuple *t=dict_find(iter,MESSAGE_KEY_Configured); if (t) s_configured=t->value->uint32!=0;
+  t=dict_find(iter,MESSAGE_KEY_Enabled); if (t && t->type==TUPLE_CSTRING) snprintf(s_enabled,sizeof s_enabled,"%s",t->value->cstring);
+  t=dict_find(iter,MESSAGE_KEY_ConfirmTranscript); if (t) s_confirm=t->value->uint32!=0;
+  Tuple *id=dict_find(iter,MESSAGE_KEY_RequestId),*command=dict_find(iter,MESSAGE_KEY_Command);
+  if (id && command && command->type==TUPLE_CSTRING && !strcmp(command->value->cstring,"ask")) {
+    if (id->value->uint32==s_request_id && (busy() || s_answer_id==s_request_id)) return;
+    if (busy()) cancel_turn("");
+    s_request_id=id->value->uint32; s_view=VIEW_WAIT; s_prompt[0]='\0';
+    snprintf(s_status,sizeof s_status,"Asking through the phone..."); start_timeout(); redraw(); return;
+  }
+  if (id && command && command->type==TUPLE_CSTRING && !strcmp(command->value->cstring,"cancel")) {
+    if (id->value->uint32==s_request_id) { s_view=VIEW_READER; s_collecting=false; cancel_turn("Stopped from the phone."); }
+    return;
+  }
+  if (id && command && command->type==TUPLE_CSTRING && (!strcmp(command->value->cstring,"survey") || !strcmp(command->value->cstring,"record"))) {
+    if (busy() && id->value->uint32!=s_request_id) cancel_turn("");
+    if (!strcmp(command->value->cstring,"record")) {
+      if (busy() && id->value->uint32==s_request_id) return;
+      s_request_id=id->value->uint32; s_phone_record=true; s_configured=true; ask(); return;
+    }
+    collect(id->value->uint32); return;
+  }
+  if (!id || id->value->uint32!=s_request_id) { redraw(); return; }
+  Tuple *text=dict_find(iter,MESSAGE_KEY_ResponseText),*status=dict_find(iter,MESSAGE_KEY_StatusText);
+  if (text && text->type==TUPLE_CSTRING && text->length<=901 && text->length>1) {
+    if (s_answer_id==s_request_id) { s_ack_id=s_request_id; flush(NULL); return; }
+    if (!busy()) return;
+    signal_utf8_copy(s_answer,sizeof s_answer,text->value->cstring); s_answer_id=s_request_id;
+    s_view=VIEW_READER; s_status[0]='\0'; s_scroll=0; clear_timeout(); stop_sampling(); s_collecting=s_snapshot_pending=false;
+    s_ack_id=s_request_id; flush(NULL); redraw(); return;
+  }
+  if (status && status->type==TUPLE_CSTRING && busy()) {
+    signal_utf8_copy(s_status,sizeof s_status,status->value->cstring);
+    t=dict_find(iter,MESSAGE_KEY_Complete);
+    if (t && t->value->uint32) { s_view=VIEW_READER; clear_timeout(); stop_sampling(); s_collecting=s_snapshot_pending=false; }
+  }
+  redraw();
+}
+#ifdef PBL_MICROPHONE
+static void dictated(DictationSession *session,DictationSessionStatus status,char *text,void *context) {
+  if (s_view!=VIEW_DICTATION) return;
+  if (status!=DictationSessionStatusSuccess || !text || !text[0]) { cancel_turn("Question cancelled or unavailable. Check speech settings."); return; }
+  if (strlen(text)>400) { cancel_turn("Question is too long. Please use a shorter question."); return; }
+  request("ask",text);
 }
 #endif
 static void ask(void) {
-  if (busy()) { cancel_turn("Stopped. Select to ask a new question."); return; }
-  if (!connection_service_peek_pebble_app_connection()) { fail("Connect the Pebble phone app first."); return; }
-  if (!s_configured) { s_help = true; snprintf(s_status, sizeof s_status, "Add a token in phone settings."); redraw(); return; }
+  if (busy()) { cancel_turn("Stopped."); return; }
+  if (!s_configured || !s_connected) { s_phone_record=false; s_view=VIEW_READER; snprintf(s_status,sizeof s_status,"Open Signal Station in the lab companion and configure a provider."); redraw(); return; }
 #ifdef PBL_MICROPHONE
-  stop_audio(); next_request();
-  if (!s_dictation) {
-    s_dictation = dictation_session_create(401, dictation_done, NULL);
-    if (s_dictation) { dictation_session_enable_confirmation(s_dictation, true); dictation_session_enable_error_dialogs(s_dictation, false); }
-  }
-  if (!s_dictation) { fail("Dictation unavailable. Check the phone app."); return; }
-  s_state = STATE_DICTATING;
-  DictationSessionStatus result = dictation_session_start(s_dictation);
-  if (result != DictationSessionStatusSuccess) { fail("Could not start dictation. Check the phone app."); return; }
-  redraw();
+  if (!s_dictation) s_dictation=dictation_session_create(401,dictated,NULL);
+  if (!s_dictation) { snprintf(s_status,sizeof s_status,"Dictation is unavailable."); s_view=VIEW_READER; redraw(); return; }
+  dictation_session_enable_confirmation(s_dictation,s_confirm); dictation_session_enable_error_dialogs(s_dictation,false);
+  s_view=VIEW_DICTATION; s_scroll=0; snprintf(s_status,sizeof s_status,"Speak near the watch. Back cancels.");
+  if (dictation_session_start(s_dictation)!=DictationSessionStatusSuccess) cancel_turn("Dictation could not start. Check the phone.");
 #else
-  fail("This watch has no microphone. Help has an offline demo.");
+  s_view=VIEW_READER; snprintf(s_status,sizeof s_status,"This watch has no microphone. Ask from the phone.");
 #endif
+  redraw();
 }
-static void demo(void) {
-  cancel_turn(""); s_help = false; s_answer[0] = '\0'; next_request(); s_demo = true;
-  send_request("demo", NULL);
+static void select_click(ClickRecognizerRef r,void *context) {
+  if (busy()) { cancel_turn("Stopped."); return; }
+  if (s_view!=VIEW_MENU) { ask(); return; }
+  if (s_menu==0) ask();
+  else if (s_menu==1) request("survey",NULL);
+  else if (s_menu==2) { s_view=VIEW_READER; s_status[0]='\0'; s_scroll=0; }
+  else if (s_menu==3) { s_clear_pending=true; s_answer[0]=s_prompt[0]='\0'; s_answer_id=0; s_view=VIEW_MENU; flush(NULL); }
+  else if (s_menu==4) { s_settings_pending=true; flush(NULL); s_view=VIEW_READER; snprintf(s_status,sizeof s_status,"Open Signal Station in the lab companion on your phone."); }
+  else { s_view=VIEW_HELP; s_scroll=0; }
+  redraw();
 }
-static void select_click(ClickRecognizerRef r, void *context) { if (s_help) demo(); else ask(); }
-static void up_click(ClickRecognizerRef r, void *context) { s_scroll -= 36; if (s_scroll < 0) s_scroll = 0; redraw(); }
-static void down_click(ClickRecognizerRef r, void *context) { s_scroll += 36; if (s_scroll > s_scroll_max) s_scroll = s_scroll_max; redraw(); }
-static void up_long(ClickRecognizerRef r, void *context) {
-#ifdef PBL_SPEAKER
-  if (s_help) {
-    cancel_turn(""); s_help = false; s_demo = true;
-    snprintf(s_answer, sizeof s_answer, "SPEAKER CHECK\nThree rising notes using the PulseTime playback API. No phone or audio packets.\n\nBack stops playback.");
-    if (speaker_is_muted() || !s_voice) { fail("Voice muted. Check watch sound settings."); return; }
-    s_tone_test = true; s_state = STATE_SPEAKING;
-    static const SpeakerNote notes[] = {
-      {.midi_note=72, .waveform=SpeakerWaveformSine, .duration_ms=400, .velocity=0},
-      {.midi_note=0, .waveform=SpeakerWaveformSine, .duration_ms=150, .velocity=0},
-      {.midi_note=76, .waveform=SpeakerWaveformSine, .duration_ms=400, .velocity=0},
-      {.midi_note=0, .waveform=SpeakerWaveformSine, .duration_ms=150, .velocity=0},
-      {.midi_note=79, .waveform=SpeakerWaveformSine, .duration_ms=650, .velocity=0}
-    };
-    bool started = speaker_play_notes(notes, ARRAY_LENGTH(notes), s_volume);
-    APP_LOG(APP_LOG_LEVEL_INFO, "FieldInspector: native tone started=%d volume=%u muted=%d", started, s_volume, speaker_is_muted());
-    if (!started) { s_tone_test = false; fail("Built-in tone could not start."); }
-    redraw();
-    return;
-  }
-#endif
-  cancel_turn(""); s_help = false; next_request(); send_request("replay", NULL);
+static void select_long(ClickRecognizerRef r,void *context) { ask(); }
+static void up_click(ClickRecognizerRef r,void *context) {
+  if (s_view==VIEW_MENU) s_menu=(s_menu+5)%6;
+  else { s_scroll-=36; if (s_scroll<0) s_scroll=0; } redraw();
 }
-static void down_long(ClickRecognizerRef r, void *context) {
-  cancel_turn(""); s_help = true; s_scroll = 0; redraw();
+static void down_click(ClickRecognizerRef r,void *context) {
+  if (s_view==VIEW_MENU) s_menu=(s_menu+1)%6;
+  else { s_scroll+=36; if (s_scroll>s_scroll_max) s_scroll=s_scroll_max; } redraw();
 }
-static void back_click(ClickRecognizerRef r, void *context) {
-  if (s_help) { s_help = false; s_scroll = 0; redraw(); }
-  else if (busy()) cancel_turn("Stopped. Select to ask again.");
-  else window_stack_pop(true);
+static void back_click(ClickRecognizerRef r,void *context) {
+  if (busy()) cancel_turn("Stopped. Your last report is still here.");
+  else if (s_view!=VIEW_MENU) { s_view=VIEW_MENU; s_scroll=0; redraw(); }
+  else { s_clear_pending=true; flush(NULL); window_stack_pop(true); }
 }
 static void clicks(void *context) {
-  window_single_click_subscribe(BUTTON_ID_SELECT, select_click);
-  window_single_click_subscribe(BUTTON_ID_UP, up_click);
-  window_single_click_subscribe(BUTTON_ID_DOWN, down_click);
-  window_single_click_subscribe(BUTTON_ID_BACK, back_click);
-  window_long_click_subscribe(BUTTON_ID_UP, 650, up_long, NULL);
-  window_long_click_subscribe(BUTTON_ID_DOWN, 650, down_long, NULL);
+  window_single_click_subscribe(BUTTON_ID_SELECT,select_click);
+  window_long_click_subscribe(BUTTON_ID_SELECT,650,select_long,NULL);
+  window_single_repeating_click_subscribe(BUTTON_ID_UP,150,up_click);
+  window_single_repeating_click_subscribe(BUTTON_ID_DOWN,150,down_click);
+  window_single_click_subscribe(BUTTON_ID_BACK,back_click);
 }
-static GRect body_bounds(GRect bounds) {
-  int w = bounds.size.w, h = bounds.size.h;
-  bool round = PBL_IF_ROUND_ELSE(true, false), big = h >= 200;
-  int inset = round ? w / 7 : 6, top = round ? h / 10 : 2;
-  int footer_y = h - (round ? h / 9 : 2) - (big ? 48 : 36);
-  int body_y = top + (big ? 34 : 26);
-  return GRect(inset, body_y, w - 2 * inset, footer_y - body_y - 4);
-}
+static GRect body_bounds(GRect b) { int inset=PBL_IF_ROUND_ELSE(b.size.w/7,7); return GRect(inset,38,b.size.w-2*inset,b.size.h-76); }
+static GFont font(void) { return fonts_get_system_font(layer_get_bounds(s_canvas).size.h>=200 ? FONT_KEY_GOTHIC_24_BOLD : FONT_KEY_GOTHIC_18_BOLD); }
 static const char *body_text(void) {
-  if (s_help) return "Select: streamed demo\nHold Up: built-in tone (speaker watches)\n\nPhone setup:\nOpen this app's settings. Add an installation token.\n\nOutside Help, hold Up to replay.\nUp/Down: scroll\nBack: stop or leave\n\nSelect to ask. Speak, then confirm.";
-  if (s_state == STATE_DICTATING) return "Speak near the watch.\n\nReview the transcript, then Select to send. Back cancels.";
-  if (s_notice && s_answer[0]) {
-    snprintf(s_notice_text, sizeof s_notice_text, "%s\n\n%s", s_status, s_answer);
-    return s_notice_text;
+  if (s_view==VIEW_HELP) return "Ask: speak a question.\nSurvey: send the sources selected on your phone for analysis.\nLatest: read again without a provider request.\n\nUp/Down: move or read\nSelect: choose\nHold Select: ask\nBack: stop, menu, exit\n\nNew session starts fresh. Saved history is managed on the phone.\n\nPhone settings hold provider keys and source choices. No speaker playback.";
+  if (s_view==VIEW_WAIT) { snprintf(s_display,sizeof s_display,"%s%s%s",s_prompt[0]?s_prompt:"",s_prompt[0]?"\n\n":"",s_status); return s_display; }
+  if (s_view==VIEW_DICTATION) return s_status;
+  if (s_status[0]) { snprintf(s_display,sizeof s_display,"%s%s%s",s_status,s_answer[0]?"\n\n":"",s_answer); return s_display; }
+  return s_answer[0]?s_answer:"No report yet. Back returns to Ask and Survey.";
+}
+static void draw_body(Layer *layer,GContext *ctx) {
+  GRect b=layer_get_bounds(layer); graphics_context_set_text_color(ctx,GColorWhite);
+  if (s_view==VIEW_MENU) {
+    int h=layer_get_bounds(s_canvas).size.h>=200?32:24;
+    int first=s_menu>2?s_menu-2:0;
+    for (int i=first;i<6 && (i-first+1)*h<=b.size.h;i++) {
+      if (i==s_menu) { graphics_context_set_fill_color(ctx,PBL_IF_COLOR_ELSE(GColorCyan,GColorWhite)); graphics_fill_rect(ctx,GRect(0,(i-first)*h,b.size.w,h),2,GCornersAll); graphics_context_set_text_color(ctx,GColorBlack); }
+      else graphics_context_set_text_color(ctx,GColorWhite);
+      graphics_draw_text(ctx,s_items[i],font(),GRect(3,(i-first)*h-3,b.size.w-6,h),GTextOverflowModeTrailingEllipsis,GTextAlignmentLeft,NULL);
+    }
+    return;
   }
-  if (s_state == STATE_ERROR) return s_status;
-  if (s_state == STATE_WAITING) return "Working on your question.\nBack cancels.";
-  if (s_answer[0]) return s_answer;
-  return s_configured ? "Select to ask.\nSpeak, then confirm." : "Hold Down for setup and speaker checks.";
+  GSize size=graphics_text_layout_get_content_size(body_text(),font(),GRect(0,0,b.size.w,6000),GTextOverflowModeWordWrap,GTextAlignmentLeft);
+  s_scroll_max=size.h>b.size.h?size.h-b.size.h:0; if (s_scroll>s_scroll_max) s_scroll=s_scroll_max;
+  graphics_draw_text(ctx,body_text(),font(),GRect(0,-s_scroll,b.size.w,6000),GTextOverflowModeWordWrap,GTextAlignmentLeft,NULL);
 }
-static GColor instrument_ink(void) { return PBL_IF_COLOR_ELSE(GColorCyan, GColorWhite); }
-static int art_height(void) {
-  if (s_help || s_answer[0] || s_state == STATE_ERROR || s_state == STATE_DICTATING) return 0;
-  return layer_get_bounds(s_canvas).size.h >= 200 ? 90 : 56;
+static void draw(Layer *layer,GContext *ctx) {
+  GRect b=layer_get_bounds(layer); int inset=PBL_IF_ROUND_ELSE(b.size.w/7,7);
+  graphics_context_set_fill_color(ctx,GColorBlack); graphics_fill_rect(ctx,b,0,GCornerNone);
+  graphics_context_set_text_color(ctx,PBL_IF_COLOR_ELSE(GColorCyan,GColorWhite));
+  graphics_draw_text(ctx,s_view==VIEW_MENU?"SIGNAL STATION":s_view==VIEW_HELP?"FIELD MANUAL":s_view==VIEW_DICTATION?"LISTENING":busy()?"CONTACTING":"FIELD REPORT",fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD),GRect(inset,9,b.size.w-inset*2,24),GTextOverflowModeTrailingEllipsis,GTextAlignmentCenter,NULL);
+  graphics_context_set_stroke_color(ctx,PBL_IF_COLOR_ELSE(GColorCyan,GColorWhite)); graphics_draw_line(ctx,GPoint(inset,34),GPoint(b.size.w-inset,34));
+  graphics_context_set_text_color(ctx,GColorWhite);
+  const char *footer=busy()?"Back: stop":s_view==VIEW_MENU?(s_connected?"Select: choose":"Phone disconnected"):"Up/Down: read";
+  graphics_draw_text(ctx,footer,fonts_get_system_font(FONT_KEY_GOTHIC_14),GRect(inset,b.size.h-32,b.size.w-2*inset,20),GTextOverflowModeTrailingEllipsis,GTextAlignmentCenter,NULL);
 }
-static void draw_radar(GContext *ctx, int w, int height) {
-  int r = height / 2 - 5;
-  GPoint c = GPoint(w / 2, height / 2);
-  graphics_context_set_stroke_color(ctx, PBL_IF_COLOR_ELSE(GColorDarkGray, GColorWhite));
-  graphics_context_set_stroke_width(ctx, 1);
-  graphics_draw_circle(ctx, c, r);
-  graphics_draw_circle(ctx, c, r * 2 / 3);
-  graphics_draw_circle(ctx, c, r / 3);
-  graphics_draw_line(ctx, GPoint(c.x-r-3,c.y), GPoint(c.x+r+3,c.y));
-  graphics_draw_line(ctx, GPoint(c.x,c.y-r-3), GPoint(c.x,c.y+r+3));
-  int32_t angle = (s_phase % 48) * TRIG_MAX_ANGLE / 48;
-  GPoint tip = GPoint(c.x + sin_lookup(angle)*r/TRIG_MAX_RATIO,
-                     c.y - cos_lookup(angle)*r/TRIG_MAX_RATIO);
-  graphics_context_set_stroke_color(ctx, instrument_ink());
-  graphics_draw_line(ctx, c, tip);
-  graphics_context_set_fill_color(ctx, instrument_ink());
-  graphics_fill_circle(ctx, tip, 2);
-  for (int i=0; i<3; i++) {
-    int32_t a = (i*17+7)*TRIG_MAX_ANGLE/48;
-    int rr = r*(i+2)/5;
-    GPoint p = GPoint(c.x+sin_lookup(a)*rr/TRIG_MAX_RATIO, c.y-cos_lookup(a)*rr/TRIG_MAX_RATIO);
-    graphics_context_set_fill_color(ctx, PBL_IF_COLOR_ELSE(GColorChromeYellow, GColorWhite));
-    graphics_fill_circle(ctx,p, ((s_phase+i*13)%48)<8 ? 3 : 1);
-  }
-}
-static void animate(void *context) {
-  s_animation = NULL;
-  if (!s_canvas || !s_focused) return;
-  s_phase++;
-  layer_mark_dirty(s_canvas);
-  if (s_body_clip && art_height()) layer_mark_dirty(s_body_clip);
-  s_animation = app_timer_register(busy() ? 125 : 250, animate, NULL);
-}
-static void focus_changed(bool focused) {
-  s_focused = focused;
-  if (!focused && s_animation) { app_timer_cancel(s_animation); s_animation = NULL; }
-  if (focused && !s_animation) animate(NULL);
-}
-static GFont body_font(void) {
-  return fonts_get_system_font(layer_get_bounds(s_canvas).size.h >= 200 ? FONT_KEY_GOTHIC_24_BOLD : FONT_KEY_GOTHIC_18_BOLD);
-}
-static void update_body_layout(void) {
-  if (!s_body_clip || !s_canvas) return;
-  GRect box = body_bounds(layer_get_unobstructed_bounds(s_canvas));
-  layer_set_frame(s_body_clip, box);
-  GSize size = graphics_text_layout_get_content_size(body_text(), body_font(), GRect(0,0,box.size.w,2000), GTextOverflowModeWordWrap, GTextAlignmentLeft);
-  int content_height = size.h + art_height();
-  s_scroll_max = content_height > box.size.h ? content_height - box.size.h : 0;
-  if (s_scroll > s_scroll_max) s_scroll = s_scroll_max;
-}
-static void draw_body(Layer *layer, GContext *ctx) {
-  int art = art_height();
-  if (art && !s_scroll) draw_radar(ctx, layer_get_bounds(layer).size.w, art);
-  graphics_context_set_text_color(ctx, GColorWhite);
-  graphics_draw_text(ctx, body_text(), body_font(), GRect(0,art-s_scroll,layer_get_bounds(layer).size.w,2000),
-    GTextOverflowModeWordWrap, GTextAlignmentLeft, NULL);
-}
-static void draw(Layer *layer, GContext *ctx) {
-  GRect bounds = layer_get_unobstructed_bounds(layer);
-  int w = bounds.size.w, h = bounds.size.h;
-  bool round = PBL_IF_ROUND_ELSE(true, false), big = h >= 200;
-  int inset = round ? w / 7 : 6, top = round ? h / 10 : 2;
-  int footer_y = h - (round ? h / 9 : 2) - (big ? 48 : 36);
-  graphics_context_set_fill_color(ctx, GColorBlack);
-  graphics_fill_rect(ctx, layer_get_bounds(layer), 0, GCornerNone);
-  graphics_context_set_text_color(ctx, instrument_ink());
-  const char *heading = s_help ? "FIELD MANUAL" : s_demo ? "OFFLINE DEMO" :
-    s_state == STATE_DICTATING ? "LISTENING" : s_state == STATE_WAITING ? "CONTACTING" :
-    s_state == STATE_LOADING ? "LOADING VOICE" : s_state == STATE_SPEAKING ? "AUDIO OUTPUT" :
-    s_state == STATE_ERROR ? "TRY AGAIN" : s_answer[0] ? "FIELD REPORT" : "FIELD INSPECTOR";
-  graphics_draw_text(ctx, heading, fonts_get_system_font(big ? FONT_KEY_GOTHIC_24_BOLD : FONT_KEY_GOTHIC_18_BOLD),
-    GRect(inset, top, w - 2 * inset, big ? 30 : 22), GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter, NULL);
-  graphics_context_set_stroke_color(ctx, instrument_ink());
-  graphics_draw_line(ctx, GPoint(inset,top+(big?32:24)), GPoint(w-inset,top+(big?32:24)));
-  graphics_context_set_fill_color(ctx, PBL_IF_COLOR_ELSE(GColorChromeYellow, GColorWhite));
-  int scanner = inset + (s_phase % 24)*(w-2*inset-10)/23;
-  graphics_fill_rect(ctx,GRect(scanner,top+(big?31:23),10,3),0,GCornerNone);
-  graphics_context_set_text_color(ctx, GColorWhite);
-  const char *footer = s_help ? "Select: demo tone" : busy() ? "Back: stop" : "Select: ask";
-  graphics_draw_text(ctx, footer, fonts_get_system_font(big ? FONT_KEY_GOTHIC_18_BOLD : FONT_KEY_GOTHIC_14_BOLD),
-    GRect(inset, footer_y, w - 2 * inset, big ? 23 : 18), GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter, NULL);
-  graphics_draw_text(ctx, s_help || s_scroll_max > 0 ? "Up/Down: read" : "Hold Down: help",
-    fonts_get_system_font(big ? FONT_KEY_GOTHIC_18 : FONT_KEY_GOTHIC_14),
-    GRect(inset, footer_y + (big ? 23 : 18), w - 2 * inset, big ? 23 : 18), GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter, NULL);
+static void redraw(void) { if (s_canvas) layer_mark_dirty(s_canvas); if (s_body) layer_mark_dirty(s_body); }
+static void connection_changed(bool connected) {
+  s_connected=connected;
+  if (!connected && busy()) cancel_turn("Phone connection lost. Reconnect to ask again.");
+  if (connected) { s_ready_pending=true; flush(NULL); } redraw();
 }
 static void window_load(Window *window) {
-  Layer *root = window_get_root_layer(window);
-  s_canvas = layer_create(layer_get_bounds(root));
-  layer_set_update_proc(s_canvas, draw); layer_add_child(root, s_canvas);
-  s_body_clip = layer_create(body_bounds(layer_get_bounds(root)));
-  layer_set_update_proc(s_body_clip, draw_body);
-  layer_add_child(root, s_body_clip);
-  update_body_layout();
+  Layer *root=window_get_root_layer(window); GRect b=layer_get_bounds(root);
+  s_canvas=layer_create(b); layer_set_update_proc(s_canvas,draw); layer_add_child(root,s_canvas);
+  s_body=layer_create(body_bounds(b)); layer_set_update_proc(s_body,draw_body); layer_add_child(root,s_body);
 }
-static void window_unload(Window *window) {
-  if (s_animation) { app_timer_cancel(s_animation); s_animation = NULL; }
-  layer_destroy(s_body_clip); s_body_clip = NULL; layer_destroy(s_canvas); s_canvas = NULL;
-}
+static void window_unload(Window *window) { layer_destroy(s_body); s_body=NULL; layer_destroy(s_canvas); s_canvas=NULL; }
 static void init(void) {
-  light_enable(true);
-  s_request_id = persist_exists(PERSIST_REQUEST_ID) ? (uint32_t)persist_read_int(PERSIST_REQUEST_ID) : (uint32_t)time(NULL);
-  s_configured = persist_exists(PERSIST_CONFIGURED) && persist_read_bool(PERSIST_CONFIGURED);
-  if (persist_exists(PERSIST_VOICE)) s_voice = persist_read_bool(PERSIST_VOICE);
-  if (persist_exists(PERSIST_VOLUME)) s_volume = persist_read_int(PERSIST_VOLUME);
-  s_window = window_create(); window_set_background_color(s_window, GColorBlack);
-  window_set_window_handlers(s_window, (WindowHandlers){.load=window_load,.unload=window_unload});
-  window_set_click_config_provider(s_window, clicks);
-  app_message_register_inbox_received(inbox);
-  app_message_register_inbox_dropped(inbox_dropped);
-  app_message_register_outbox_sent(outbox_sent);
-  app_message_register_outbox_failed(outbox_failed);
-  app_message_open(2048, 1024);
-  connection_service_subscribe((ConnectionHandlers){.pebble_app_connection_handler=connection_changed});
-#ifdef PBL_SPEAKER
-  speaker_set_finish_callback(audio_finished, NULL);
-#endif
-  window_stack_push(s_window, true);
-  app_focus_service_subscribe(focus_changed);
-  animate(NULL);
-  DictionaryIterator *iter;
-  if (app_message_outbox_begin(&iter) == APP_MSG_OK) { dict_write_cstring(iter, MESSAGE_KEY_RequestType, "ready"); app_message_outbox_send(); }
+  s_request_id=persist_exists(PERSIST_REQUEST_ID)?(uint32_t)persist_read_int(PERSIST_REQUEST_ID):(uint32_t)time(NULL);
+  s_window=window_create(); window_set_background_color(s_window,GColorBlack);
+  window_set_window_handlers(s_window,(WindowHandlers){.load=window_load,.unload=window_unload}); window_set_click_config_provider(s_window,clicks);
+  app_message_register_inbox_received(inbox); app_message_register_inbox_dropped(inbox_dropped);
+  app_message_register_outbox_sent(outbox_sent); app_message_register_outbox_failed(outbox_failed); app_message_open(2048,2048);
+  s_connected=connection_service_peek_pebble_app_connection(); connection_service_subscribe((ConnectionHandlers){.pebble_app_connection_handler=connection_changed});
+  window_stack_push(s_window,true); s_ready_pending=true; flush(NULL);
 }
 static void deinit(void) {
-  light_enable(false);
-  app_focus_service_unsubscribe();
-  if (s_animation) { app_timer_cancel(s_animation); s_animation = NULL; }
-  if (s_request_timer) app_timer_cancel(s_request_timer);
-  clear_timeout(); stop_audio(); send_cancel();
+  stop_sampling(); clear_timeout(); if (s_outbox_timer) app_timer_cancel(s_outbox_timer);
 #ifdef PBL_MICROPHONE
   if (s_dictation) dictation_session_destroy(s_dictation);
-#endif
-#ifdef PBL_SPEAKER
-  speaker_set_finish_callback(NULL, NULL);
 #endif
   connection_service_unsubscribe(); app_message_deregister_callbacks(); window_destroy(s_window);
 }

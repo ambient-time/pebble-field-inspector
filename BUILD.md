@@ -1,32 +1,69 @@
-# Building Field Inspector
+# Building Signal Station
 
-Use Pebble CLI 5.0.39 with SDK 4.33.1, Node.js, Python 3.10 or newer, a C compiler for the host audio and acknowledgement checks, and `ffmpeg` for the server conversion check. Clay is vendored with its license; the watch build needs no package download.
+Use Pebble CLI 5.0.39, SDK 4.33.1, Node.js, Python 3, and a host C compiler.
+No provider key, service account, or package download is required for watch checks.
 
 ```sh
-python3 -m unittest discover -s server -p 'test_*.py'
 npm run test:client
 pebble sdk activate 4.33.1
 pebble clean
 pebble build
 ```
 
-The build emits `build/pebble-field-inspector.pbw`. The UUID is `e2fd86ec-dfb8-460c-afc1-ebe4d071657a`; this is a watchapp, not a watchface. It contains Basalt, Chalk, Diorite, Emery, Flint, and Gabbro binaries.
+The bundle remains `build/pebble-field-inspector.pbw` to preserve tooling identity.
+Its display name is Signal Station and version is 1.1.0. Its UUID is unchanged;
+the six target binaries are Basalt, Chalk, Diorite, Emery, Flint, and Gabbro.
+Always clean after changing message keys, since incremental builds can retain an
+old generated key header. Existing numeric key positions are append-only.
 
-From committed, clean source, run `bash stage-release.sh`. It repeats the relevant checks, clean-builds the application, verifies the package metadata and platform contents, and writes `dist/field-inspector.pbw`, its SHA-256 checksum, and the source commit. No installation token or gateway credential belongs in the bundle.
+The native companion must allow the SHA-256 of the exact bundled
+`build/pebble-js-app.js`. Rebuild its allowlist whenever that script changes.
+The only bridge address is `https://field-inspector.invalid/native/v1/`; the
+matching companion intercepts it. A stock companion cannot supply this integration.
 
-## Device checks
+From clean committed source, `bash stage-release.sh` runs tests, clean-builds,
+checks ZIP integrity, metadata and all target binaries, then writes both
+`dist/signal-station.pbw` and the compatibility filename `dist/field-inspector.pbw`.
+Source commit and exact script checksum accompany the package. Staging is not
+store publication or physical validation.
 
-```sh
-pebble install --emulator emery build/pebble-field-inspector.pbw
-pebble screenshot --emulator emery --no-open /tmp/field-inspector.png
-```
+## Native bridge contract
 
-Confirm Field Inspector is visibly open after installation; an emulator can
-leave the previous app on screen. The demo still needs its emulated phone
-companion, even though it makes no internet request.
+| Method and route | Purpose |
+|---|---|
+| GET `capabilities` | `configured`, enabled source keys, transcript confirmation and reduced-motion preference |
+| POST `start` | Start `{kind, request_id, prompt?}`; kinds `ask` and `survey` |
+| GET `status?request_id=n` | Poll every 500ms; `working`, `ready` with bounded `text`, or `error` |
+| POST `watch-data` | Serialized `{request_id, observations, complete}` batches |
+| POST `delivered` | Idempotent text receipt acknowledgement after watch validation |
+| POST `cancel` | Explicit native cancellation, independently of XHR abort |
+| POST `clear` | Start a fresh conversation |
+| POST `settings` | Open native configuration |
 
-Repeat with Diorite and Chalk/Gabbro to check 2 SE and circular layouts. Exercise idle help, the labeled local demo, scrolling, replay, Back cancellation, disconnected-phone recovery, and phone settings. Emulator screenshots establish layout and control behavior. They do not establish microphone service availability, physical radio throughput, speaker intelligibility, or hardware haptics.
+Native `configmessage` events carry `event.data` and receive `event.respond`.
+`survey` asks the watch to collect selected metrics; `record` starts watch
+dictation and retains the native request ID through the resulting `ask`.
+`cancel` invalidates local state without a native cancellation feedback loop.
+`ask` attaches to a typed phone question for watch delivery without another provider request.
 
-For a physical end-to-end check, configure a restricted installation token on the paired phone, confirm a dictated question, and read the reply. On Time 2 or 2 Duo, also hear the complete reply, stop it with Back, replay it, and verify system mute. On 2 SE and round watches, verify that text remains complete and scrollable. Check settings in both display shapes before distributing the build.
+Watch observations use epoch **milliseconds** for collection, measurement, and
+window timestamps. Health durations are **seconds**. Every observation includes
+key/source/value/unit/status/period, with local `date` for day aggregates.
+Unknown or denied data has a null value and explicit status. Magnetic heading is
+degrees clockwise from magnetic north. Motion has sample count, mean x/y/z in mg,
+and peak absolute axis in mg; these are measurements rather than activity guesses.
 
-See [VALIDATION.md](VALIDATION.md) for the recorded build and execution evidence.
+## Acceptance
+
+Tests cover cancellation, late replies, duplicate requests and acknowledgements,
+same-ID phone-record transitions, serialized survey completion, native config
+events, UTF-8 bounds, bounded motion aggregation, and actual day helper behavior
+across spring/fall DST. Historical audio tests and the old server are outside
+the active text-only release path.
+
+Physical acceptance needs Time 2 + Pixel 9a: dictation with both recognition
+choices, a selected-source survey, follow-up question, report scrolling, Back
+cancellation, locked phone, Bluetooth interruption, denied/revoked permissions,
+missing provider credentials, and return to stock companion operation. Check a
+small rectangular and a round watch separately. No physical result is implied
+by the host or emulator tests.

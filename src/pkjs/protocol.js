@@ -1,183 +1,155 @@
 'use strict';
-// Phone-only protocol. No credentials are ever fields in a watch message.
-var MAX_AUDIO = 128000;
-var CHUNK = 512;
-function characterCount(text) { return text.replace(/[\uD800-\uDBFF][\uDC00-\uDFFF]/g, 'x').length; }
-var DEFAULT_ENDPOINT = 'https://api.dr.eamer.dev/pebble-inspector/v1/inspect';
-
-function normalizeSettings(raw) {
-  raw = raw || {};
-  function value(key, fallback) {
-    var v = raw[key];
-    if (v && typeof v === 'object') v = v.value;
-    return v === undefined ? fallback : v;
-  }
-  var endpoint = String(value('Endpoint', DEFAULT_ENDPOINT)).trim();
-  var token = String(value('ClientToken', '')).trim();
-  // PebbleKit JS has no portable URL constructor. Check explicit ports here;
-  // the XHR boundary still handles other URLs the phone cannot open.
-  var endpointParts = /^https:\/\/[^\s\/?#:@]+(?::([0-9]+))?\/[^\s#]*$/.exec(endpoint);
-  var endpointValid = !!endpointParts && !/[\x00-\x1f\x7f-\x9f\\]/.test(endpoint) &&
-    (!endpointParts[1] || (Number(endpointParts[1]) >= 1 && Number(endpointParts[1]) <= 65535));
-  return {
-    endpoint: endpoint,
-    token: token,
-    valid: endpointValid && token.length > 0 && token.length <= 256 && !/[\x00-\x1f\x7f-\x9f]/.test(token),
-    voice: value('VoiceEnabled', true) !== false && value('VoiceEnabled', true) !== 0,
-    volume: Math.max(10, Math.min(100, Number(value('Volume', 65)) || 65))
-  };
+// Signal Station native bridge. Provider keys never enter this runtime.
+var BASE = 'https://field-inspector.invalid/native/v1/';
+var MAX_TEXT_BYTES = 900;
+function utf8Bytes(s) {
+  try { return unescape(encodeURIComponent(s)).length; } catch (_) { return Infinity; }
 }
-
-function decodeAudio(audio) {
-  if (!audio) return null;
-  if (audio.sample_rate !== 8000 || audio.format !== 's8') throw new Error('Unsupported voice format. Text is ready.');
-  var b64 = audio.pcm_base64;
-  if (typeof b64 !== 'string' || b64.length > Math.ceil(MAX_AUDIO / 3) * 4 || b64.length % 4 ||
-      !/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(b64)) {
-    throw new Error('Invalid voice data. Text is ready.');
-  }
-  var alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
-  var size = b64.length / 4 * 3 - (/==$/.test(b64) ? 2 : /=$/.test(b64) ? 1 : 0);
-  if (size > MAX_AUDIO) throw new Error('Voice reply is too long. Text is ready.');
-  var out = new Uint8Array(size), cursor = 0;
-  for (var i = 0; i < b64.length; i += 4) {
-    var n = (alphabet.indexOf(b64[i]) << 18) | (alphabet.indexOf(b64[i + 1]) << 12) |
-      (Math.max(0, alphabet.indexOf(b64[i + 2])) << 6) | Math.max(0, alphabet.indexOf(b64[i + 3]));
-    if (cursor < size) out[cursor++] = (n >>> 16) & 255;
-    if (cursor < size) out[cursor++] = (n >>> 8) & 255;
-    if (cursor < size) out[cursor++] = n & 255;
-  }
-  return out;
-}
-
+function requestId(id) { return typeof id === 'number' && id > 0 && id <= 2147483647 && Math.floor(id) === id; }
 function createClient(options) {
-  var active = null, generation = 0, cached = null;
+  var active = null, generation = 0;
   var later = options.setTimer || setTimeout, clear = options.clearTimer || clearTimeout;
+  function send(packet, done, failed) {
+    var owner = generation;
+    options.send(packet, done || function () {}, failed || function () {}, function () { return owner === generation; });
+  }
+  function native(method, path, body, done) { return options.request(method, BASE + path, body, done || function () {}); }
   function valid(a) { return active === a && a.generation === generation; }
-  function settings() { return normalizeSettings(options.settings()); }
-  function send(packet, done, failed) { options.send(packet, done || function () {}, failed || function () {}); }
-  function cancel() {
-    generation++;
+  function cancel(fromNative) {
     var old = active;
-    active = null;
+    generation++; active = null;
     if (old) {
       if (old.timer) clear(old.timer);
       if (old.abort) old.abort();
+      // XHR abort alone does not cancel a native coroutine.
+      if (!fromNative) native('POST', 'cancel', {request_id:old.id});
     }
   }
-  function failed(a, text) {
+  function error(a, message) {
     if (!valid(a)) return;
     if (a.timer) clear(a.timer);
-    a.waiting = null;
-    send({RequestId:a.id, StatusText:String(text).slice(0,100), AudioExpected:0});
+    a.terminal = true;
+    send({RequestId:a.id, StatusText:message || 'Open Signal Station in the lab companion.', Complete:1});
   }
-  function transmit(a, packet) {
+  function deliver(a) {
+    if (!valid(a) || a.delivered) return;
+    if (++a.deliveries > 3) return error(a, 'Watch delivery timed out. Ask again when connected.');
+    send({RequestId:a.id, ResponseText:a.text, Complete:1}, function () {
+      if (valid(a) && !a.delivered) a.timer = later(function () { deliver(a); }, 3000);
+    }, function () { error(a, 'Watch connection lost.'); });
+  }
+  function acknowledge(a, attempt) {
     if (!valid(a)) return;
-    if (a.timer) clear(a.timer);
-    a.waiting = packet;
-    send(packet, function () {
-      if (!valid(a) || a.waiting !== packet) return;
-      a.timer = later(function () {
-        if (!valid(a) || a.waiting !== packet) return;
-        if (++a.retries > 2) return failed(a, 'Voice transfer timed out. Text is ready.');
-        transmit(a, packet);
-      }, 6000);
-    }, function () { failed(a, 'Watch connection lost. Try again.'); });
+    a.committing = true;
+    native('POST', 'delivered', {request_id:a.id}, function (err) {
+      if (!valid(a)) return;
+      if (!err) { a.delivered = true; a.committing = false; return; }
+      if (attempt < 3) a.timer = later(function () { acknowledge(a, attempt + 1); }, 500);
+      else { a.committing = false; error(a, 'Reply received; session acknowledgement failed.'); }
+    });
   }
-  function next(a) {
+  function drainWatchData(a) {
+    if (!valid(a) || a.uploading || !a.watchQueue.length) return;
+    a.uploading = true;
+    var packet = a.watchQueue.shift();
+    native('POST', 'watch-data', packet, function (err) {
+      if (!valid(a)) return;
+      a.uploading = false;
+      if (err) return error(a, err);
+      drainWatchData(a);
+    });
+  }
+  function poll(a) {
     if (!valid(a)) return;
-    a.retries = 0;
-    if (a.sequence === 0) {
-      transmit(a, {RequestId:a.id, AudioBegin:a.audio.length, AudioSequence:0});
-    } else if (a.offset < a.audio.length) {
-      var end = Math.min(a.offset + CHUNK, a.audio.length);
-      var bytes = [];
-      for (var i = a.offset; i < end; i++) bytes.push(a.audio[i]);
-      a.pendingEnd = end;
-      transmit(a, {RequestId:a.id, AudioSequence:a.sequence, AudioChunk:bytes});
-    } else {
-      transmit(a, {RequestId:a.id, AudioSequence:a.sequence, AudioEnd:1});
-    }
-  }
-  function deliver(a, result) {
-    if (!valid(a)) return;
-    a.audio = result.audio;
-    a.offset = 0;
-    a.sequence = 0;
-    var warning = result.warning || '';
-    var playable = a.speak && a.audio && a.audio.length;
-    send({RequestId:a.id, ResponseText:result.text, Demo:result.demo ? 1 : 0,
-      StatusText:warning || (result.demo ? 'OFFLINE DEMO' : 'Reply ready'), AudioExpected:playable ? 1 : 0}, function () {
-        if (valid(a) && playable) next(a);
-      }, function () { failed(a, 'Watch connection lost. Try again.'); });
-  }
-  function begin(payload) {
-    cancel();
-    var cfg = settings();
-    var a = active = {id:payload.RequestId, generation:generation, timer:null, abort:null,
-      speak:cfg.voice && !!payload.SpeakerAvailable && !payload.Muted, waiting:null};
-    if (payload.RequestType === 'demo') {
-      var audio = new Uint8Array(8000);
-      for (var i = 0; i < audio.length; i++) {
-        var fade = Math.min(1, i / 120, (audio.length - i) / 120);
-        audio[i] = Math.round(Math.sin(i * 2 * Math.PI * 523.25 / 8000) * 32 * fade) & 255;
-      }
-      cached = {text:'OFFLINE DEMO\nA field report appears here. Real replies come from the question you confirm. This test plays a tone, not a spoken answer.', audio:audio, demo:true};
-      return deliver(a, cached);
-    }
-    if (payload.RequestType === 'replay') {
-      if (!cached) return failed(a, 'No saved reply. Select to ask, or try Demo in Help.');
-      return deliver(a, cached);
-    }
-    if (!cfg.valid) return failed(a, 'Check the HTTPS endpoint and installation token in phone settings.');
-    if (typeof payload.Prompt !== 'string' || !payload.Prompt.trim() || characterCount(payload.Prompt) > 400) {
-      return failed(a, 'Question is empty or too long. Please try again.');
-    }
-    var abort = options.fetchJson(cfg.endpoint, cfg.token,
-      {request_id:a.id, prompt:payload.Prompt, speak:a.speak}, function (error, data) {
-        if (!valid(a)) return;
-        a.abort = null;
-        if (error) return failed(a, error);
-        if (!data || data.request_id !== a.id || typeof data.text !== 'string' || !data.text.trim() || characterCount(data.text) > 240) {
-          return failed(a, 'Invalid service reply. Please try again.');
+    if (++a.polls > 180) return error(a, 'Request timed out. Back stops this request.');
+    a.abort = native('GET', 'status?request_id=' + a.id, null, function (err, data) {
+      if (!valid(a)) return;
+      if (err || !data) return error(a, err);
+      if (data.state === 'error') return error(a, data.status || 'Request failed. Check the phone.');
+      if (data.state === 'ready') {
+        if (typeof data.text !== 'string' || !data.text.trim() || utf8Bytes(data.text) > MAX_TEXT_BYTES) {
+          return error(a, 'Invalid report size. Check the phone.');
         }
-        var pcm = null, warning = typeof data.warning === 'string' ? data.warning.slice(0,100) : '';
-        try { if (a.speak) pcm = decodeAudio(data.audio); } catch (e) { warning = e.message; }
-        cached = {text:data.text, audio:pcm, warning:warning, demo:false};
-        deliver(a, cached);
-      });
-    if (valid(a)) a.abort = abort;
+        a.text = data.text; a.terminal = true; a.deliveries = 0;
+        return deliver(a);
+      }
+      if (data.state !== 'working') return error(a, 'Unknown companion response.');
+      if (data.status && data.status !== a.lastStatus) {
+        a.lastStatus = data.status;
+        send({RequestId:a.id, StatusText:String(data.status).slice(0,90), Complete:0});
+      }
+      a.timer = later(function () { poll(a); }, 500);
+    });
+  }
+  function attach(id) {
+    if (active && active.id === id) return active;
+    cancel();
+    active = {id:id, generation:generation, timer:null, abort:null, polls:0, terminal:false, delivered:false, watchQueue:[]};
+    return active;
+  }
+  function sync() {
+    native('GET', 'capabilities', null, function (err, cfg) {
+      if (err || !cfg) return send({Configured:0, StatusText:'Open Signal Station in the lab companion.'});
+      send({Configured:cfg.configured ? 1 : 0, Enabled:JSON.stringify(cfg.enabled || []),
+        ConfirmTranscript:cfg.confirmTranscript ? 1 : 0, ReducedMotion:cfg.reducedMotion ? 1 : 0});
+    });
   }
   return {
-    sync: function () {
-      var cfg = settings();
-      send({Configured:cfg.valid ? 1 : 0, VoiceEnabled:cfg.voice ? 1 : 0, Volume:cfg.volume});
-    },
-    cancel: cancel,
-    handle: function (payload) {
-      if (!payload) return;
-      if (payload.RequestType === 'ready') return this.sync();
-      if (payload.RequestType === 'cancel') {
-        if (active && payload.RequestId === active.id) cancel();
+    sync:sync,
+    cancel:cancel,
+    configuration:function (command) {
+      if (command && command.kind === 'cancel' && requestId(command.request_id)) {
+        if (active && active.id === command.request_id) {
+          cancel(true);
+          send({RequestId:command.request_id, Command:'cancel'});
+        }
         return;
       }
-      if (payload.AudioAck !== undefined) {
+      if (!command || ['survey','record','ask'].indexOf(command.kind) < 0 || !requestId(command.request_id)) return;
+      var already = active && active.id === command.request_id;
+      var a = attach(command.request_id);
+      if (command.kind === 'record') a.recording = true;
+      send({RequestId:a.id, Command:command.kind, Enabled:JSON.stringify(command.enabled || []),
+        ConfirmTranscript:command.confirmTranscript ? 1 : 0});
+      if (!already && command.kind !== 'record') poll(a);
+    },
+    settings:function () { native('POST', 'settings', {}); },
+    handle:function (p) {
+      if (!p) return;
+      if (p.RequestType === 'ready') return sync();
+      if (p.RequestType === 'clear') { cancel(); return native('POST', 'clear', {}, function () { sync(); }); }
+      if (p.RequestType === 'settings') return native('POST', 'settings', {});
+      if (!requestId(p.RequestId)) return;
+      if (p.RequestType === 'cancel') { if (active && active.id === p.RequestId) cancel(); return; }
+      if (p.TextAck !== undefined) {
         var a = active;
-        if (!a || payload.RequestId !== a.id || !a.waiting || payload.AudioAck !== a.waiting.AudioSequence) return;
-        var packet = a.waiting;
+        if (!a || a.id !== p.RequestId || !a.text || a.delivered || a.committing) return;
         if (a.timer) clear(a.timer);
-        a.waiting = null;
-        if (packet.AudioEnd) return;
-        if (packet.AudioChunk) a.offset = a.pendingEnd;
-        a.sequence++;
-        return next(a);
+        return acknowledge(a, 1);
       }
-      if (['inspect','demo','replay'].indexOf(payload.RequestType) === -1 ||
-          typeof payload.RequestId !== 'number' || payload.RequestId < 1 || payload.RequestId > 2147483647 ||
-          Math.floor(payload.RequestId) !== payload.RequestId) return;
-      begin(payload);
+      if (p.Snapshot !== undefined || p.RequestType === 'watch-data') {
+        if (!active || active.id !== p.RequestId || active.terminal) return;
+        var observations;
+        try { observations = p.Snapshot ? JSON.parse(p.Snapshot) : []; } catch (_) { return error(active, 'Invalid watch readings.'); }
+        if (!Array.isArray(observations) || observations.length > 12) return error(active, 'Invalid watch readings.');
+        if (active.watchQueue.length >= 24) return error(active, 'Too many watch packets.');
+        active.watchQueue.push({request_id:p.RequestId, observations:observations, complete:!!p.Complete});
+        return drainWatchData(active);
+      }
+      if (['ask','survey','record'].indexOf(p.RequestType) < 0) return;
+      var recordTransition = active && active.id === p.RequestId && active.recording && p.RequestType === 'ask';
+      if (active && active.id === p.RequestId && !recordTransition) return; // A transport retry must not bill twice.
+      if (p.RequestType === 'ask' && (typeof p.Prompt !== 'string' || !p.Prompt.trim() || utf8Bytes(p.Prompt) > 400)) {
+        return send({RequestId:p.RequestId, StatusText:'Question is empty or too long.', Complete:1});
+      }
+      var a = attach(p.RequestId);
+      a.recording = false;
+      a.abort = native('POST', 'start', {kind:p.RequestType, request_id:p.RequestId, prompt:p.Prompt || undefined}, function (err) {
+        if (!valid(a)) return;
+        if (err) return error(a, err);
+        poll(a);
+      });
     }
   };
 }
-module.exports = {createClient:createClient, normalizeSettings:normalizeSettings, decodeAudio:decodeAudio,
-  MAX_AUDIO:MAX_AUDIO, CHUNK:CHUNK, DEFAULT_ENDPOINT:DEFAULT_ENDPOINT};
+module.exports = {createClient:createClient, BASE:BASE, utf8Bytes:utf8Bytes, MAX_TEXT_BYTES:MAX_TEXT_BYTES};

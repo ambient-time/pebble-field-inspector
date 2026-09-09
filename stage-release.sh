@@ -6,7 +6,6 @@ if [[ -n "$(git status --porcelain)" ]]; then
   echo "Commit the intended source changes before staging a release." >&2
   exit 1
 fi
-python3 -m unittest discover -s server -p 'test_*.py'
 npm run test:client
 pebble sdk activate 4.33.1
 pebble clean
@@ -31,6 +30,8 @@ print('PBW metadata and all six platform binaries verified')
 PY
 mkdir -p dist
 cp build/pebble-field-inspector.pbw dist/field-inspector.pbw
+cp build/pebble-field-inspector.pbw dist/signal-station.pbw
+shasum -a 256 build/pebble-js-app.js > dist/JAVASCRIPT_SHA256.txt
 git rev-parse HEAD > dist/SOURCE_COMMIT.txt
-(cd dist && shasum -a 256 field-inspector.pbw > SHA256SUMS.txt && shasum -a 256 -c SHA256SUMS.txt)
-echo "Staged dist/field-inspector.pbw"
+(cd dist && shasum -a 256 field-inspector.pbw signal-station.pbw > SHA256SUMS.txt && shasum -a 256 -c SHA256SUMS.txt)
+echo "Staged dist/signal-station.pbw and compatibility filename"

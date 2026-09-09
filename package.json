@@ -1,20 +1,61 @@
 {
   "name": "pebble-field-inspector",
   "author": "Luke Steuber",
-  "version": "1.0.1",
+  "version": "1.1.0",
   "private": true,
   "dependencies": {},
-  "scripts": {"test:client": "node tests/client.test.js && bash tests/audio.test.sh"},
+  "scripts": {
+    "test:client": "node tests/client.test.js && bash tests/signal.test.sh"
+  },
   "pebble": {
-    "displayName": "Field Inspector",
+    "displayName": "Signal Station",
     "companyName": "Luke Steuber",
     "uuid": "e2fd86ec-dfb8-460c-afc1-ebe4d071657a",
     "sdkVersion": "3",
     "enableMultiJS": true,
-    "targetPlatforms": ["basalt", "chalk", "diorite", "emery", "flint", "gabbro"],
-    "capabilities": ["configurable"],
-    "watchapp": {"watchface": false},
-    "messageKeys": ["RequestType", "RequestId", "Prompt", "SpeakerAvailable", "Muted", "ResponseText", "StatusText", "AudioExpected", "AudioBegin", "AudioChunk", "AudioEnd", "AudioAck", "AudioSequence", "Demo", "Configured", "VoiceEnabled", "Volume"],
-    "resources": {"media": []}
+    "targetPlatforms": [
+      "basalt",
+      "chalk",
+      "diorite",
+      "emery",
+      "flint",
+      "gabbro"
+    ],
+    "capabilities": [
+      "configurable",
+      "health"
+    ],
+    "watchapp": {
+      "watchface": false
+    },
+    "messageKeys": [
+      "RequestType",
+      "RequestId",
+      "Prompt",
+      "SpeakerAvailable",
+      "Muted",
+      "ResponseText",
+      "StatusText",
+      "AudioExpected",
+      "AudioBegin",
+      "AudioChunk",
+      "AudioEnd",
+      "AudioAck",
+      "AudioSequence",
+      "Demo",
+      "Configured",
+      "VoiceEnabled",
+      "Volume",
+      "Snapshot",
+      "Command",
+      "Enabled",
+      "Complete",
+      "TextAck",
+      "ConfirmTranscript",
+      "ReducedMotion"
+    ],
+    "resources": {
+      "media": []
+    }
   }
 }

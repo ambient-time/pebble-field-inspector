@@ -1,16 +1,4 @@
 [
-  {"type":"heading","defaultValue":"Field Inspector"},
-  {"type":"text","defaultValue":"Press Select on the watch, say a question, then confirm the transcript. The answer appears in large text. Time 2 and 2 Duo can also speak; other Pebbles show the same answer. Back always stops the current request or voice."},
-  {"type":"section","items":[
-    {"type":"heading","defaultValue":"Connect your field kit"},
-    {"type":"input","messageKey":"Endpoint","label":"Service address","defaultValue":"https://api.dr.eamer.dev/pebble-inspector/v1/inspect","attributes":{"type":"url","autocapitalize":"none","autocomplete":"off"},"description":"Use the HTTPS address provided with your installation token."},
-    {"type":"input","messageKey":"ClientToken","label":"Installation token","defaultValue":"","attributes":{"type":"password","autocapitalize":"none","autocomplete":"off"},"description":"Enter a Field Inspector installation token. It stays on the phone. Do not enter an OpenAI, ElevenLabs, or general gateway key."}
-  ]},
-  {"type":"section","items":[
-    {"type":"heading","defaultValue":"Voice replies"},
-    {"type":"toggle","messageKey":"VoiceEnabled","label":"Speak replies when available","defaultValue":true,"description":"Text always appears first. The watch’s mute and Quiet Time settings are respected."},
-    {"type":"slider","messageKey":"Volume","label":"Watch volume","defaultValue":65,"min":10,"max":100,"step":5},
-    {"type":"text","defaultValue":"On the watch, hold Down for Help. Select in Help runs an offline demo: a clearly labeled example answer and a short test tone. No question is sent to the service."}
-  ]},
-  {"type":"submit","defaultValue":"Save to phone"}
+  {"type":"heading","defaultValue":"Signal Station"},
+  {"type":"text","defaultValue":"Open Signal Station in the matching lab companion to choose providers and sources. Keys are entered only in native phone settings."}
 ]
