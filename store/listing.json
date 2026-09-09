@@ -6,8 +6,8 @@
   "type": "watchapp",
   "desiredVisibility": "Unlisted",
   "desiredReleaseStatus": "Draft",
-  "description": "I wanted a small way to ask questions with a little context. Up captures the readings I choose, Select asks a spoken question, and Down opens recent saved history. Capture and History do not require an answer provider. The phone keeps full records.\n\nRequires the experimental Pebble Inspector Lab Android companion. Bring your own provider key for questions. Location, weather, nearby signals, sensors, and supported watch health readings are individually optional.\n\nBy Luke Steuber.",
-  "releaseNotes": "Three direct home shortcuts: Up Capture, Select Ask, Down History. Capture saves readings without an answer provider. History reads recent phone records. New antenna icon and contextual scrolling.",
+  "description": "I wanted a small field notebook for moments worth keeping. Press Up on your Pebble to capture the readings you choose, Select to ask a question, or Down to revisit recent history. The phone keeps the full records. Capture needs no provider key; analyze a saved capture when you want a text reply.\n\nUse the Signal Station Android companion for setup, permissions, watch installation and your own provider keys. Location, weather, nearby signals, phone sensors and supported watch health readings are individually optional. There is no ambient audio or video collection.\n\nBy Luke Steuber.",
+  "releaseNotes": "Up captures selected readings without a provider key. Select asks a question. Down opens recent phone history. New menu and launcher icons, plus clearer return and cancel controls. Use Signal Station Android companion lab 4 for guided setup, permissions, bundled watch installation, local capture and later analysis.",
   "sourceUrl": "",
   "targets": [
     "basalt",
@@ -18,5 +18,5 @@
     "gabbro"
   ],
   "physicalValidation": "Not performed",
-  "dashboardState": "Local 1.2.0 candidate; last verified dashboard release remains Draft 1.1.0"
+  "dashboardState": "Verified Unlisted with Draft release1.2.0 and updated icons, companion metadata and native screenshots"
 }
