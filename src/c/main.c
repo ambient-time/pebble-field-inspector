@@ -4,14 +4,14 @@
 #define TEXT_CAP 1024
 #define SNAPSHOT_CAP 1900
 #define PERSIST_REQUEST_ID 1
-typedef enum { VIEW_MENU, VIEW_READER, VIEW_HELP, VIEW_WAIT, VIEW_DICTATION } View;
+typedef enum { VIEW_MENU, VIEW_READER, VIEW_HELP, VIEW_WAIT, VIEW_DICTATION, VIEW_HISTORY } View;
 static Window *s_window;
 static Layer *s_canvas, *s_body;
 static View s_view;
-static char s_answer[TEXT_CAP], s_status[160], s_display[TEXT_CAP+200], s_prompt[401];
+static char s_answer[TEXT_CAP], s_history[TEXT_CAP], s_status[160], s_display[TEXT_CAP+200], s_prompt[401];
 static char s_enabled[900], s_snapshot[SNAPSHOT_CAP], s_kind[16];
-static bool s_configured, s_confirm, s_connected, s_collecting, s_sampling, s_phone_record;
-static int s_menu, s_scroll, s_scroll_max, s_stage;
+static bool s_configured, s_bridge_ready, s_confirm, s_connected, s_collecting, s_sampling, s_phone_record;
+static int s_scroll, s_scroll_max, s_stage;
 static uint32_t s_request_id, s_answer_id, s_cancel_id, s_ack_id;
 static uint32_t s_collection_id;
 static bool s_request_pending, s_ready_pending, s_clear_pending, s_settings_pending, s_snapshot_pending;
@@ -25,7 +25,7 @@ static time_t s_collected_at;
 #ifdef PBL_MICROPHONE
 static DictationSession *s_dictation;
 #endif
-static const char *s_items[] = {"Ask", "Survey", "Latest report", "New session", "Phone settings", "Help"};
+static const char *s_items[] = {"Capture", "Ask", "History"};
 static void redraw(void);
 static void flush(void *unused);
 static void next_snapshot(void);
@@ -63,7 +63,7 @@ static void request(const char *kind, const char *prompt) {
   s_phone_record=false; s_view = VIEW_WAIT; s_scroll = 0;
   snprintf(s_kind, sizeof s_kind, "%s", kind);
   signal_utf8_copy(s_prompt, sizeof s_prompt, prompt ? prompt : "");
-  snprintf(s_status, sizeof s_status, "%s", strcmp(kind,"survey") == 0 ? "Surveying selected sources..." : "Asking through the phone...");
+  snprintf(s_status, sizeof s_status, "%s", !strcmp(kind,"history") ? "Loading saved history..." : !strcmp(kind,"capture") ? "Saving selected readings..." : !strcmp(kind,"survey") ? "Surveying selected sources..." : "Asking through the phone...");
   s_request_pending = true; start_timeout(); flush(NULL); redraw();
 }
 static void retry_flush(void) { if (!s_outbox_timer) s_outbox_timer = app_timer_register(100, flush, NULL); }
@@ -242,13 +242,15 @@ static void collect(uint32_t id) {
   snprintf(s_status,sizeof s_status,"Collecting selected watch readings..."); start_timeout(); next_snapshot(); redraw();
 }
 static void inbox(DictionaryIterator *iter,void *context) {
-  Tuple *t=dict_find(iter,MESSAGE_KEY_Configured); if (t) s_configured=t->value->uint32!=0;
+  Tuple *t=dict_find(iter,MESSAGE_KEY_BridgeReady); if (t) s_bridge_ready=t->value->uint32!=0;
+  t=dict_find(iter,MESSAGE_KEY_Configured); if (t) s_configured=t->value->uint32!=0;
   t=dict_find(iter,MESSAGE_KEY_Enabled); if (t && t->type==TUPLE_CSTRING) snprintf(s_enabled,sizeof s_enabled,"%s",t->value->cstring);
   t=dict_find(iter,MESSAGE_KEY_ConfirmTranscript); if (t) s_confirm=t->value->uint32!=0;
   Tuple *id=dict_find(iter,MESSAGE_KEY_RequestId),*command=dict_find(iter,MESSAGE_KEY_Command);
   if (id && command && command->type==TUPLE_CSTRING && !strcmp(command->value->cstring,"ask")) {
     if (id->value->uint32==s_request_id && (busy() || s_answer_id==s_request_id)) return;
     if (busy()) cancel_turn("");
+    snprintf(s_kind,sizeof s_kind,"ask");
     s_request_id=id->value->uint32; s_view=VIEW_WAIT; s_prompt[0]='\0';
     snprintf(s_status,sizeof s_status,"Asking through the phone..."); start_timeout(); redraw(); return;
   }
@@ -256,12 +258,13 @@ static void inbox(DictionaryIterator *iter,void *context) {
     if (id->value->uint32==s_request_id) { s_view=VIEW_READER; s_collecting=false; cancel_turn("Stopped from the phone."); }
     return;
   }
-  if (id && command && command->type==TUPLE_CSTRING && (!strcmp(command->value->cstring,"survey") || !strcmp(command->value->cstring,"record"))) {
+  if (id && command && command->type==TUPLE_CSTRING && (!strcmp(command->value->cstring,"survey") || !strcmp(command->value->cstring,"capture") || !strcmp(command->value->cstring,"record"))) {
     if (busy() && id->value->uint32!=s_request_id) cancel_turn("");
     if (!strcmp(command->value->cstring,"record")) {
       if (busy() && id->value->uint32==s_request_id) return;
       s_request_id=id->value->uint32; s_phone_record=true; s_configured=true; ask(); return;
     }
+    snprintf(s_kind,sizeof s_kind,"%s",command->value->cstring);
     collect(id->value->uint32); return;
   }
   if (!id || id->value->uint32!=s_request_id) { redraw(); return; }
@@ -269,8 +272,9 @@ static void inbox(DictionaryIterator *iter,void *context) {
   if (text && text->type==TUPLE_CSTRING && text->length<=901 && text->length>1) {
     if (s_answer_id==s_request_id) { s_ack_id=s_request_id; flush(NULL); return; }
     if (!busy()) return;
-    signal_utf8_copy(s_answer,sizeof s_answer,text->value->cstring); s_answer_id=s_request_id;
-    s_view=VIEW_READER; s_status[0]='\0'; s_scroll=0; clear_timeout(); stop_sampling(); s_collecting=s_snapshot_pending=false;
+    bool history=!strcmp(s_kind,"history");
+    signal_utf8_copy(history?s_history:s_answer,TEXT_CAP,text->value->cstring); s_answer_id=s_request_id;
+    s_view=history?VIEW_HISTORY:VIEW_READER; s_status[0]='\0'; s_scroll=0; clear_timeout(); stop_sampling(); s_collecting=s_snapshot_pending=false;
     s_ack_id=s_request_id; flush(NULL); redraw(); return;
   }
   if (status && status->type==TUPLE_CSTRING && busy()) {
@@ -302,30 +306,31 @@ static void ask(void) {
 #endif
   redraw();
 }
-static void select_click(ClickRecognizerRef r,void *context) {
-  if (busy()) { cancel_turn("Stopped."); return; }
-  if (s_view!=VIEW_MENU) { ask(); return; }
-  if (s_menu==0) ask();
-  else if (s_menu==1) request("survey",NULL);
-  else if (s_menu==2) { s_view=VIEW_READER; s_status[0]='\0'; s_scroll=0; }
-  else if (s_menu==3) { s_clear_pending=true; s_answer[0]=s_prompt[0]='\0'; s_answer_id=0; s_view=VIEW_MENU; flush(NULL); }
-  else if (s_menu==4) { s_settings_pending=true; flush(NULL); s_view=VIEW_READER; snprintf(s_status,sizeof s_status,"Open Signal Station in the lab companion on your phone."); }
-  else { s_view=VIEW_HELP; s_scroll=0; }
-  redraw();
+static void local_action(const char *kind) {
+  if (!s_connected || !s_bridge_ready) {
+    s_view=VIEW_READER; s_scroll=0;
+    snprintf(s_status,sizeof s_status,"Open Signal Station in the lab companion. No answer provider is needed for Capture or History.");
+    s_ready_pending=true; flush(NULL); redraw(); return;
+  }
+  request(kind,NULL);
 }
-static void select_long(ClickRecognizerRef r,void *context) { ask(); }
+static void select_click(ClickRecognizerRef r,void *context) { ask(); }
+static void select_long(ClickRecognizerRef r,void *context) {
+  if (s_view==VIEW_MENU) { s_view=VIEW_HELP; s_scroll=0; redraw(); }
+  else ask();
+}
 static void up_click(ClickRecognizerRef r,void *context) {
-  if (s_view==VIEW_MENU) s_menu=(s_menu+5)%6;
+  if (s_view==VIEW_MENU) local_action("capture");
   else { s_scroll-=36; if (s_scroll<0) s_scroll=0; } redraw();
 }
 static void down_click(ClickRecognizerRef r,void *context) {
-  if (s_view==VIEW_MENU) s_menu=(s_menu+1)%6;
+  if (s_view==VIEW_MENU) local_action("history");
   else { s_scroll+=36; if (s_scroll>s_scroll_max) s_scroll=s_scroll_max; } redraw();
 }
 static void back_click(ClickRecognizerRef r,void *context) {
-  if (busy()) cancel_turn("Stopped. Your last report is still here.");
+  if (busy()) { cancel_turn(""); s_view=VIEW_MENU; s_scroll=0; redraw(); }
   else if (s_view!=VIEW_MENU) { s_view=VIEW_MENU; s_scroll=0; redraw(); }
-  else { s_clear_pending=true; flush(NULL); window_stack_pop(true); }
+  else window_stack_pop(true);
 }
 static void clicks(void *context) {
   window_single_click_subscribe(BUTTON_ID_SELECT,select_click);
@@ -337,21 +342,33 @@ static void clicks(void *context) {
 static GRect body_bounds(GRect b) { int inset=PBL_IF_ROUND_ELSE(b.size.w/7,7); return GRect(inset,38,b.size.w-2*inset,b.size.h-76); }
 static GFont font(void) { return fonts_get_system_font(layer_get_bounds(s_canvas).size.h>=200 ? FONT_KEY_GOTHIC_24_BOLD : FONT_KEY_GOTHIC_18_BOLD); }
 static const char *body_text(void) {
-  if (s_view==VIEW_HELP) return "Ask: speak a question.\nSurvey: send the sources selected on your phone for analysis.\nLatest: read again without a provider request.\n\nUp/Down: move or read\nSelect: choose\nHold Select: ask\nBack: stop, menu, exit\n\nNew session starts fresh. Saved history is managed on the phone.\n\nPhone settings hold provider keys and source choices. No speaker playback.";
+  if (s_view==VIEW_HELP) return "Home shortcuts\nUp: Capture\nSelect: Ask\nDown: History\n\nCapture saves selected readings on your phone without a language model request.\nHistory reads recent saved records without a provider.\nAsk speaks a question and uses your phone's answer provider.\n\nUp/Down scroll reports and history. Back cancels or returns home. Hold Select here to ask.\n\nChoose sources, manage saved history, and configure providers on the phone.";
+  if (s_view==VIEW_HISTORY) return s_history;
   if (s_view==VIEW_WAIT) { snprintf(s_display,sizeof s_display,"%s%s%s",s_prompt[0]?s_prompt:"",s_prompt[0]?"\n\n":"",s_status); return s_display; }
   if (s_view==VIEW_DICTATION) return s_status;
   if (s_status[0]) { snprintf(s_display,sizeof s_display,"%s%s%s",s_status,s_answer[0]?"\n\n":"",s_answer); return s_display; }
-  return s_answer[0]?s_answer:"No report yet. Back returns to Ask and Survey.";
+  return s_answer[0]?s_answer:"No report yet. Back returns home.";
 }
 static void draw_body(Layer *layer,GContext *ctx) {
   GRect b=layer_get_bounds(layer); graphics_context_set_text_color(ctx,GColorWhite);
   if (s_view==VIEW_MENU) {
-    int h=layer_get_bounds(s_canvas).size.h>=200?32:24;
-    int first=s_menu>2?s_menu-2:0;
-    for (int i=first;i<6 && (i-first+1)*h<=b.size.h;i++) {
-      if (i==s_menu) { graphics_context_set_fill_color(ctx,PBL_IF_COLOR_ELSE(GColorCyan,GColorWhite)); graphics_fill_rect(ctx,GRect(0,(i-first)*h,b.size.w,h),2,GCornersAll); graphics_context_set_text_color(ctx,GColorBlack); }
-      else graphics_context_set_text_color(ctx,GColorWhite);
-      graphics_draw_text(ctx,s_items[i],font(),GRect(3,(i-first)*h-3,b.size.w-6,h),GTextOverflowModeTrailingEllipsis,GTextAlignmentLeft,NULL);
+    int h=b.size.h/3;
+    for (int i=0;i<3;i++) {
+      int cy=i*h+h/2;
+      graphics_context_set_stroke_color(ctx,PBL_IF_COLOR_ELSE(GColorCyan,GColorWhite));
+      graphics_context_set_fill_color(ctx,PBL_IF_COLOR_ELSE(GColorCyan,GColorWhite));
+      if (i==0) { // Capture: a receiving ring and central sample.
+        graphics_draw_circle(ctx,GPoint(10,cy),8);
+        graphics_fill_circle(ctx,GPoint(10,cy),3);
+      } else if (i==1) { // Ask: speech bubble.
+        graphics_draw_round_rect(ctx,GRect(2,cy-7,17,12),3);
+        graphics_draw_line(ctx,GPoint(5,cy+5),GPoint(5,cy+9));
+        graphics_draw_line(ctx,GPoint(5,cy+9),GPoint(10,cy+5));
+      } else { // History: three saved lines.
+        for (int j=-1;j<=1;j++) graphics_draw_line(ctx,GPoint(3,cy+j*5),GPoint(18,cy+j*5));
+      }
+      graphics_context_set_text_color(ctx,GColorWhite);
+      graphics_draw_text(ctx,s_items[i],font(),GRect(27,i*h-2,b.size.w-27,h),GTextOverflowModeTrailingEllipsis,GTextAlignmentLeft,NULL);
     }
     return;
   }
@@ -363,15 +380,15 @@ static void draw(Layer *layer,GContext *ctx) {
   GRect b=layer_get_bounds(layer); int inset=PBL_IF_ROUND_ELSE(b.size.w/7,7);
   graphics_context_set_fill_color(ctx,GColorBlack); graphics_fill_rect(ctx,b,0,GCornerNone);
   graphics_context_set_text_color(ctx,PBL_IF_COLOR_ELSE(GColorCyan,GColorWhite));
-  graphics_draw_text(ctx,s_view==VIEW_MENU?"SIGNAL STATION":s_view==VIEW_HELP?"FIELD MANUAL":s_view==VIEW_DICTATION?"LISTENING":busy()?"CONTACTING":"FIELD REPORT",fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD),GRect(inset,9,b.size.w-inset*2,24),GTextOverflowModeTrailingEllipsis,GTextAlignmentCenter,NULL);
+  graphics_draw_text(ctx,s_view==VIEW_MENU?"SIGNAL STATION":s_view==VIEW_HELP?"FIELD MANUAL":s_view==VIEW_DICTATION?"LISTENING":s_view==VIEW_HISTORY?"RECENT HISTORY":busy()?"CONTACTING":"FIELD REPORT",fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD),GRect(inset,9,b.size.w-inset*2,24),GTextOverflowModeTrailingEllipsis,GTextAlignmentCenter,NULL);
   graphics_context_set_stroke_color(ctx,PBL_IF_COLOR_ELSE(GColorCyan,GColorWhite)); graphics_draw_line(ctx,GPoint(inset,34),GPoint(b.size.w-inset,34));
   graphics_context_set_text_color(ctx,GColorWhite);
-  const char *footer=busy()?"Back: stop":s_view==VIEW_MENU?(s_connected?"Select: choose":"Phone disconnected"):"Up/Down: read";
+  const char *footer=busy()?"Back: stop":s_view==VIEW_MENU?(s_connected?(s_bridge_ready?"Hold Select: help":"Open lab companion"):"Phone disconnected"):"Up/Down: read";
   graphics_draw_text(ctx,footer,fonts_get_system_font(FONT_KEY_GOTHIC_14),GRect(inset,b.size.h-32,b.size.w-2*inset,20),GTextOverflowModeTrailingEllipsis,GTextAlignmentCenter,NULL);
 }
 static void redraw(void) { if (s_canvas) layer_mark_dirty(s_canvas); if (s_body) layer_mark_dirty(s_body); }
 static void connection_changed(bool connected) {
-  s_connected=connected;
+  s_connected=connected; if (!connected) s_bridge_ready=false;
   if (!connected && busy()) cancel_turn("Phone connection lost. Reconnect to ask again.");
   if (connected) { s_ready_pending=true; flush(NULL); } redraw();
 }

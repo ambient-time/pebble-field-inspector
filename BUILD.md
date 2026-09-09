@@ -11,7 +11,7 @@ pebble build
 ```
 
 The bundle remains `build/pebble-field-inspector.pbw` to preserve tooling identity.
-Its display name is Signal Station and version is 1.1.0. Its UUID is unchanged;
+Its display name is Signal Station and version is 1.2.0. Its UUID is unchanged;
 the six target binaries are Basalt, Chalk, Diorite, Emery, Flint, and Gabbro.
 Always clean after changing message keys, since incremental builds can retain an
 old generated key header. Existing numeric key positions are append-only.
@@ -32,8 +32,9 @@ store publication or physical validation.
 | Method and route | Purpose |
 |---|---|
 | GET `capabilities` | `configured`, enabled source keys, transcript confirmation and reduced-motion preference |
-| POST `start` | Start `{kind, request_id, prompt?}`; kinds `ask` and `survey` |
+| POST `start` | Start `{kind, request_id, prompt?}`; kinds `ask`, `survey` (analysis), and `capture` (save without inference) |
 | GET `status?request_id=n` | Poll every 500ms; `working`, `ready` with bounded `text`, or `error` |
+| GET `history?request_id=n` | Newest five available saved records as `{text}`, bounded to 900 UTF-8 bytes; no provider request |
 | POST `watch-data` | Serialized `{request_id, observations, complete}` batches |
 | POST `delivered` | Idempotent text receipt acknowledgement after watch validation |
 | POST `cancel` | Explicit native cancellation, independently of XHR abort |
@@ -41,10 +42,12 @@ store publication or physical validation.
 | POST `settings` | Open native configuration |
 
 Native `configmessage` events carry `event.data` and receive `event.respond`.
-`survey` asks the watch to collect selected metrics; `record` starts watch
+`survey` and `capture` ask the watch to collect selected metrics; `record` starts watch
 dictation and retains the native request ID through the resulting `ask`.
 `cancel` invalidates local state without a native cancellation feedback loop.
-`ask` attaches to a typed phone question for watch delivery without another provider request.
+`ask` attaches to a phone operation for watch delivery without another provider request,
+including a capture with no watch sources. `refresh` re-reads capabilities after
+phone settings or keys change, without disturbing an active operation.
 
 Watch observations use epoch **milliseconds** for collection, measurement, and
 window timestamps. Health durations are **seconds**. Every observation includes
@@ -64,6 +67,15 @@ the active text-only release path.
 Physical acceptance needs Time 2 + Pixel 9a: dictation with both recognition
 choices, a selected-source survey, follow-up question, report scrolling, Back
 cancellation, locked phone, Bluetooth interruption, denied/revoked permissions,
-missing provider credentials, and return to stock companion operation. Check a
+Capture and History without provider credentials, and return to stock companion operation. Check a
 small rectangular and a round watch separately. No physical result is implied
 by the host or emulator tests.
+
+The append-only `BridgeReady` key distinguishes native bridge availability from
+answer-provider configuration. Capture and History require the bridge, while Ask
+also requires a configured provider. History text uses the normal watch text ACK
+locally; it never calls `/delivered` or `/start`.
+
+Original launcher and store icons are generated with `python3 scripts/render-icons.py`
+using Pillow. The monochrome launcher resource is 25px; store images are 80px and
+144px. Rebuilding the watch alone does not require Pillow.

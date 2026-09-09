@@ -9,17 +9,19 @@ Android companion. The regular Pebble companion cannot run its native collectors
 
 ## On your wrist
 
-- **Ask** starts watch dictation. The phone returns the answer as readable text.
-- **Survey** collects the sources enabled in the phone settings and sends that
-  snapshot for analysis. Nothing starts scanning continuously.
-- **Latest report** opens the last received text without another provider request.
-- **New session** starts a fresh conversation. Manage saved history on the phone.
-- **Phone settings** directs you to native provider and source configuration.
+The home screen maps directly to the three right-hand buttons:
 
-Use Up/Down to move or scroll, Select to choose, and hold Select to ask from a
-report. Back stops active work, returns to the menu, then exits. Cancelled work
-cannot replace the previous report. The watch receives up to 900 UTF-8 bytes;
-scrolling retains the full received report.
+- **Up — Capture:** save the enabled readings on the phone without sending them
+  to an answer provider. A provider key is not needed.
+- **Select — Ask:** speak a question and read the provider's answer.
+- **Down — History:** read the five most recent available saved records from the
+  phone without a language model request.
+
+Inside a report or history, Up/Down scroll. Back cancels active work and returns
+home; Back at home exits. Hold Select at home for help. Phone settings manage
+sources, providers, conversations, and saved history. Exiting the watch does not
+clear saved records. The watch receives up to 900 UTF-8 bytes; open the phone for
+complete records and older history.
 
 ## Phone setup
 
@@ -30,7 +32,7 @@ Stock recognition availability and app-specific OpenAI recognition are separate
 from the answer provider. A provider or permission failure stays visible rather
 than silently switching services.
 
-Choose the sources to include before using Survey. The phone owns Bluetooth,
+Choose the sources to include before using Capture. The phone owns Bluetooth,
 Wi-Fi, location, and phone-sensor collection. The watch can contribute battery,
 a five-second motion summary, calibrated magnetic heading, and available health
 measurements. The motion summary excludes samples affected by watch vibration.
@@ -39,7 +41,7 @@ Weather has separate switches for current conditions, a six-hour forecast,
 daylight, air quality, and UV. Choose a city in the companion or use the phone's
 approximate location. Weather requests send that place to Open-Meteo; sending
 phone coordinates to the language model requires the separate Location switch.
-Survey saves weather alongside the other readings. Every source starts off.
+Capture saves weather alongside the other readings. Every source starts off.
 
 Health aggregates cover today and seven previous complete local calendar days:
 steps, active seconds, distance, active/resting calories, sleep, and restful sleep.
@@ -61,7 +63,7 @@ their text within an inset reading area. The screen uses system backlight behavi
 and stationary text; it does not play speech or keep the backlight forced on.
 
 [Signal Station validation](docs/signal-station-validation.md) records the
-version 1.1.0 builds and protocol tests.
+version 1.2.0 builds and protocol tests.
 Physical pairing, recognition, survey delivery, permission behavior, and locked-
 phone operation require a named-device run; building does not establish them.
 

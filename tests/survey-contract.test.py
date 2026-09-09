@@ -38,3 +38,44 @@ keys = json.loads((root / 'package.json').read_text())['pebble']['messageKeys']
 assert keys[:17] == ['RequestType','RequestId','Prompt','SpeakerAvailable','Muted','ResponseText','StatusText','AudioExpected','AudioBegin','AudioChunk','AudioEnd','AudioAck','AudioSequence','Demo','Configured','VoiceEnabled','Volume']
 assert not any(x in source for x in ['speaker_', 'FiAudio', 'light_enable(true)'])
 print('PASS preserved message IDs, text-only build, and sleep episode contract')
+
+# Compile the real button handlers against narrow platform stubs: home shortcuts
+# must not become collection/provider actions while reading a saved record.
+handlers = source[source.index('static void local_action('):source.index('static void clicks(')]
+program = r'''#include <assert.h>
+#include <stdbool.h>
+#include <stdio.h>
+#include <string.h>
+typedef void *ClickRecognizerRef;
+enum { VIEW_MENU, VIEW_READER, VIEW_HELP, VIEW_WAIT, VIEW_DICTATION, VIEW_HISTORY };
+static int s_view, s_scroll, s_scroll_max=200, requests, asks, cancels, exits;
+static bool s_connected, s_bridge_ready, s_ready_pending;
+static char s_status[160], requested[16];
+static bool busy(void) { return s_view==VIEW_WAIT || s_view==VIEW_DICTATION; }
+static void redraw(void) {}
+static void flush(void *unused) {}
+static void request(const char *kind,const char *prompt) { strcpy(requested,kind);requests++;s_view=VIEW_WAIT; }
+static void ask(void) { asks++; }
+static void cancel_turn(const char *message) { cancels++;s_view=VIEW_READER; }
+static void window_stack_pop(bool animated) { exits++; }
+''' + handlers + r'''
+int main(void) {
+  s_connected=s_bridge_ready=true;s_view=VIEW_MENU;
+  up_click(NULL,NULL);assert(requests==1 && !strcmp(requested,"capture"));
+  back_click(NULL,NULL);assert(cancels==1 && s_view==VIEW_MENU);
+  down_click(NULL,NULL);assert(requests==2 && !strcmp(requested,"history"));
+  s_view=VIEW_HISTORY;s_scroll=0;down_click(NULL,NULL);assert(s_scroll==36 && requests==2);
+  up_click(NULL,NULL);assert(s_scroll==0 && requests==2);
+  back_click(NULL,NULL);assert(s_view==VIEW_MENU);
+  select_click(NULL,NULL);assert(asks==1);
+  select_long(NULL,NULL);assert(s_view==VIEW_HELP);
+  back_click(NULL,NULL);back_click(NULL,NULL);assert(exits==1);
+  s_bridge_ready=false;up_click(NULL,NULL);assert(requests==2 && s_ready_pending);
+  puts("PASS actual home shortcuts, provider-free local actions, contextual scrolling and Back");
+}
+'''
+with tempfile.TemporaryDirectory() as tmp:
+    c = Path(tmp) / 'buttons.c'; c.write_text(program)
+    binary = Path(tmp) / 'buttons'
+    subprocess.run(['cc', '-std=c99', '-Wall', '-Werror', str(c), '-o', str(binary)], check=True)
+    subprocess.run([str(binary)], check=True)

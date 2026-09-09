@@ -22,7 +22,7 @@ function createClient(options) {
       if (old.timer) clear(old.timer);
       if (old.abort) old.abort();
       // XHR abort alone does not cancel a native coroutine.
-      if (!fromNative) native('POST', 'cancel', {request_id:old.id});
+      if (!fromNative && !old.history) native('POST', 'cancel', {request_id:old.id});
     }
   }
   function error(a, message) {
@@ -89,8 +89,8 @@ function createClient(options) {
   }
   function sync() {
     native('GET', 'capabilities', null, function (err, cfg) {
-      if (err || !cfg) return send({Configured:0, StatusText:'Open Signal Station in the lab companion.'});
-      send({Configured:cfg.configured ? 1 : 0, Enabled:JSON.stringify(cfg.enabled || []),
+      if (err || !cfg) return send({BridgeReady:0, Configured:0, StatusText:'Open Signal Station in the lab companion.'});
+      send({BridgeReady:1, Configured:cfg.configured ? 1 : 0, Enabled:JSON.stringify(cfg.enabled || []),
         ConfirmTranscript:cfg.confirmTranscript ? 1 : 0, ReducedMotion:cfg.reducedMotion ? 1 : 0});
     });
   }
@@ -98,6 +98,7 @@ function createClient(options) {
     sync:sync,
     cancel:cancel,
     configuration:function (command) {
+      if (command && command.kind === 'refresh') return sync();
       if (command && command.kind === 'cancel' && requestId(command.request_id)) {
         if (active && active.id === command.request_id) {
           cancel(true);
@@ -105,7 +106,7 @@ function createClient(options) {
         }
         return;
       }
-      if (!command || ['survey','record','ask'].indexOf(command.kind) < 0 || !requestId(command.request_id)) return;
+      if (!command || ['survey','capture','record','ask'].indexOf(command.kind) < 0 || !requestId(command.request_id)) return;
       var already = active && active.id === command.request_id;
       var a = attach(command.request_id);
       if (command.kind === 'record') a.recording = true;
@@ -125,6 +126,7 @@ function createClient(options) {
         var a = active;
         if (!a || a.id !== p.RequestId || !a.text || a.delivered || a.committing) return;
         if (a.timer) clear(a.timer);
+        if (a.history) { a.delivered = true; return; }
         return acknowledge(a, 1);
       }
       if (p.Snapshot !== undefined || p.RequestType === 'watch-data') {
@@ -136,7 +138,22 @@ function createClient(options) {
         active.watchQueue.push({request_id:p.RequestId, observations:observations, complete:!!p.Complete});
         return drainWatchData(active);
       }
-      if (['ask','survey','record'].indexOf(p.RequestType) < 0) return;
+      if (p.RequestType === 'history') {
+        if (active && active.id === p.RequestId) return;
+        var history = attach(p.RequestId);
+        history.history = true;
+        history.abort = native('GET', 'history?request_id=' + history.id, null, function (err, data) {
+          if (!valid(history)) return;
+          if (err) return error(history, err);
+          if (!data || typeof data.text !== 'string' || !data.text.trim() || utf8Bytes(data.text) > MAX_TEXT_BYTES) {
+            return error(history, 'Invalid history size. Check the phone.');
+          }
+          history.text = data.text; history.terminal = true; history.deliveries = 0;
+          deliver(history);
+        });
+        return;
+      }
+      if (['ask','survey','capture','record'].indexOf(p.RequestType) < 0) return;
       var recordTransition = active && active.id === p.RequestId && active.recording && p.RequestType === 'ask';
       if (active && active.id === p.RequestId && !recordTransition) return; // A transport retry must not bill twice.
       if (p.RequestType === 'ask' && (typeof p.Prompt !== 'string' || !p.Prompt.trim() || utf8Bytes(p.Prompt) > 400)) {

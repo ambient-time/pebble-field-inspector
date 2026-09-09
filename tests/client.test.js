@@ -18,7 +18,7 @@ var count=0;
 function test(name,fn){fn();count++;console.log('PASS '+name);}
 test('capabilities whitelist excludes every credential',function(){
   var h=setup();h.client.sync();latest(h,'capabilities').done(null,{configured:true,enabled:['watch.battery'],confirmTranscript:true,key:'never-send',endpoint:'secret'});
-  assert.deepStrictEqual(Object.keys(h.messages[0]).sort(),['Configured','ConfirmTranscript','Enabled','ReducedMotion']);
+  assert.deepStrictEqual(Object.keys(h.messages[0]).sort(),['BridgeReady','Configured','ConfirmTranscript','Enabled','ReducedMotion']);
   assert(!JSON.stringify(h.messages).includes('never-send'));
 });
 test('only reserved native URLs and no Authorization argument',function(){
@@ -115,5 +115,37 @@ test('runtime receives native configmessage data and responds',function(){
   vm.runInNewContext(fs.readFileSync(require('path').join(__dirname,'../src/pkjs/index.js'),'utf8'),{require:function(){return fake;},Pebble:{addEventListener:function(k,v){events[k]=v;}}});
   events.configmessage({data:JSON.stringify({kind:'record',request_id:8}),respond:function(v){responded=v;}});
   assert.strictEqual(configured.request_id,8);assert.strictEqual(responded.accepted,true);
+});
+test('capture works without an answer provider and starts only collection',function(){
+  var h=setup();h.client.sync();latest(h,'capabilities').done(null,{configured:false,enabled:[]});
+  assert.strictEqual(h.messages[0].BridgeReady,1);assert.strictEqual(h.messages[0].Configured,0);
+  h.client.handle({RequestId:70,RequestType:'capture'});
+  assert.strictEqual(latest(h,'start').body.kind,'capture');assert.strictEqual(latest(h,'start').body.prompt,undefined);
+  h.client.configuration({kind:'capture',request_id:70,enabled:['watch.battery']});
+  assert.strictEqual(h.messages[1].Command,'capture');assert(!latest(h,'cancel'));
+  latest(h,'start').done(null,{});latest(h,'status').done(null,{state:'ready',text:'Saved 1 reading.'});
+  h.client.handle({RequestId:70,TextAck:1});assert(latest(h,'delivered'));
+});
+test('history is a read-only bounded fetch with local acknowledgement',function(){
+  var h=setup();h.client.handle({RequestId:71,RequestType:'history'});h.client.handle({RequestId:71,RequestType:'history'});
+  assert.strictEqual(h.requests.length,1);assert.strictEqual(latest(h,'history').method,'GET');
+  latest(h,'history').done(null,{text:'Sep 9: Saved readings'});h.client.handle({RequestId:71,TextAck:1});
+  assert(!latest(h,'start'));assert(!latest(h,'delivered'));
+  h.client.handle({RequestId:71,RequestType:'cancel'});assert(!latest(h,'cancel'));
+});
+test('cancelled history cannot replace a new result',function(){
+  var h=setup();h.client.handle({RequestId:72,RequestType:'history'});var old=latest(h,'history');
+  h.client.handle({RequestId:72,RequestType:'cancel'});old.done(null,{text:'Stale'});assert.strictEqual(h.messages.length,0);
+});
+test('history rejects oversized UTF8 and missing bridge disables capture affordance',function(){
+  var h=setup();h.client.handle({RequestId:73,RequestType:'history'});latest(h,'history').done(null,{text:'界'.repeat(301)});
+  assert(!h.messages[0].ResponseText);assert(h.messages[0].Complete);
+  h=setup();h.client.sync();latest(h,'capabilities').done('Unavailable');assert.strictEqual(h.messages[0].BridgeReady,0);
+});
+test('phone settings refresh capabilities without starting or cancelling work',function(){
+  var h=setup();ask(h,80);h.client.configuration({kind:'refresh'});
+  latest(h,'capabilities').done(null,{configured:false,enabled:['watch.battery']});
+  assert.strictEqual(h.messages[0].Configured,0);assert.strictEqual(h.messages[0].BridgeReady,1);
+  assert(!latest(h,'cancel'));assert.strictEqual(h.requests.filter(function(r){return r.url.endsWith('/start');}).length,1);
 });
 console.log(count+' Signal Station protocol tests passed.');

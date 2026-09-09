@@ -1,4 +1,23 @@
-# Signal Station 1.1.0 validation
+# Signal Station 1.2.0 validation
+
+By Luke Steuber. Host checks on September 9, 2026.
+
+- 25 native bridge protocol tests pass, including capture with no answer provider,
+  history as a bounded read-only fetch, local history acknowledgement, cancelled
+  history, and the existing cancellation and serialized observation checks.
+- The actual watch button handlers pass a compiled host harness: Up captures,
+  Select asks, Down opens history; Up/Down inside history only scroll; Back stops
+  work and returns home. Local actions require the bridge, not a provider.
+- SDK 4.33.1 builds all six targets with the new launcher icon. Basalt leaves
+  44,569 bytes of free RAM. The original antenna mark is reproducible with
+  `python3 scripts/render-icons.py` (Pillow); store PNGs are 80px and 144px.
+- Message keys remain append-only, with `BridgeReady` distinguishing companion
+  availability from configured inference. Capture and History do not start an
+  answer-provider request; native integration is verified separately.
+- No 1.2.0 emulator, physical watch, pairing, or store publication is claimed.
+  The prior screenshots below show the older 1.1.0 menu, not these new shortcuts.
+
+## Prior 1.1.0 evidence
 
 By Luke Steuber. Implementation checks on September 8, 2026.
 

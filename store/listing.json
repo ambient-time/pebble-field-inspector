@@ -1,13 +1,13 @@
 {
   "title": "Signal Station",
   "author": "Luke Steuber",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "uuid": "e2fd86ec-dfb8-460c-afc1-ebe4d071657a",
   "type": "watchapp",
   "desiredVisibility": "Unlisted",
   "desiredReleaseStatus": "Draft",
-  "description": "I wanted a small way to ask questions with a little context. Speak on your Pebble, collect the readings you choose, and get a text reply. The phone keeps the full conversation and survey history.\n\nRequires the experimental Pebble Inspector Lab Android companion and your own provider keys. Location, weather, nearby signals, sensors, and supported watch health readings are individually optional.\n\nBy Luke Steuber.",
-  "releaseNotes": "Text chat, optional surveys, and phone history replace the earlier voice-playback experiment. Use the matching Android companion for provider keys, weather, and collection settings.",
+  "description": "I wanted a small way to ask questions with a little context. Up captures the readings I choose, Select asks a spoken question, and Down opens recent saved history. Capture and History do not require an answer provider. The phone keeps full records.\n\nRequires the experimental Pebble Inspector Lab Android companion. Bring your own provider key for questions. Location, weather, nearby signals, sensors, and supported watch health readings are individually optional.\n\nBy Luke Steuber.",
+  "releaseNotes": "Three direct home shortcuts: Up Capture, Select Ask, Down History. Capture saves readings without an answer provider. History reads recent phone records. New antenna icon and contextual scrolling.",
   "sourceUrl": "",
   "targets": [
     "basalt",
@@ -18,5 +18,5 @@
     "gabbro"
   ],
   "physicalValidation": "Not performed",
-  "dashboardState": "Saved and verified: Unlisted listing, Draft release 1.1.0"
+  "dashboardState": "Local 1.2.0 candidate; last verified dashboard release remains Draft 1.1.0"
 }
