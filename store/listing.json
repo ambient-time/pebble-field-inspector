@@ -1,0 +1,22 @@
+{
+  "title": "Signal Station",
+  "author": "Luke Steuber",
+  "version": "1.1.0",
+  "uuid": "e2fd86ec-dfb8-460c-afc1-ebe4d071657a",
+  "type": "watchapp",
+  "desiredVisibility": "Unlisted",
+  "desiredReleaseStatus": "Draft",
+  "description": "I wanted a small way to ask questions with a little context. Speak on your Pebble, collect the readings you choose, and get a text reply. The phone keeps the full conversation and survey history.\n\nRequires the experimental Pebble Inspector Lab Android companion and your own provider keys. Location, weather, nearby signals, sensors, and supported watch health readings are individually optional.\n\nBy Luke Steuber.",
+  "releaseNotes": "Text chat, optional surveys, and phone history replace the earlier voice-playback experiment. Use the matching Android companion for provider keys, weather, and collection settings.",
+  "sourceUrl": "",
+  "targets": [
+    "basalt",
+    "chalk",
+    "diorite",
+    "emery",
+    "flint",
+    "gabbro"
+  ],
+  "physicalValidation": "Not performed",
+  "dashboardState": "Not yet inspected; Mac locked"
+}
