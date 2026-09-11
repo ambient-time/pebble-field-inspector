@@ -1,14 +1,14 @@
 {
   "title": "Signal Station",
   "author": "Luke Steuber",
-  "version": "1.2.0",
+  "version": "1.5.0",
   "uuid": "e2fd86ec-dfb8-460c-afc1-ebe4d071657a",
   "type": "watchapp",
   "desiredVisibility": "Unlisted",
   "desiredReleaseStatus": "Draft",
-  "description": "I wanted a small field notebook for moments worth keeping. Press Up on your Pebble to capture the readings you choose, Select to ask a question, or Down to revisit recent history. The phone keeps the full records. Capture needs no provider key; analyze a saved capture when you want a text reply.\n\nUse the Signal Station Android companion for setup, permissions, watch installation and your own provider keys. Location, weather, nearby signals, phone sensors and supported watch health readings are individually optional. There is no ambient audio or video collection.\n\nBy Luke Steuber.",
-  "releaseNotes": "Up captures selected readings without a provider key. Select asks a question. Down opens recent phone history. New menu and launcher icons, plus clearer return and cancel controls. Use Signal Station Android companion lab 4 for guided setup, permissions, bundled watch installation, local capture and later analysis.",
-  "sourceUrl": "",
+  "description": "Signal Station keeps selected readings and questions on your Android phone. The optional watch controls request a capture with Up, ask with Select, and open recent history with Down. The phone holds the full records and text replies. Capture needs no provider key.\n\nUse the separate Signal Station Android app for source choices, permissions, local history and your own provider keys. Keep your watch paired in the Pebble app that already manages it. The Android app also works without a watch.\n\nLocation, weather, nearby map places, wireless readings, cellular context and supported health data are individually optional. External lookups have their own review before sending. There is no ambient audio or video collection.\n\nThis is a development preview. Watch installation remains on hold while an earlier watch-settings reset is investigated. Physical-watch exchange has not been validated.\n\nBy Luke Steuber.",
+  "releaseNotes": "Messaging-only preview for the separate Signal Station Android app. Up captures selected readings, Select asks, and Down opens recent history through the existing Pebble app connection. Setup and help now refer to the phone app. No bundled phone JavaScript, watch pairing or firmware controls. Installation remains on hold while the earlier watch-settings reset is investigated; physical-watch exchange has not been validated.",
+  "sourceUrl": "https://dr.eamer.dev/downloads/apps/signal-station/#source",
   "targets": [
     "basalt",
     "chalk",
@@ -18,5 +18,5 @@
     "gabbro"
   ],
   "physicalValidation": "Not performed",
-  "dashboardState": "Verified Unlisted with Draft release1.2.0 and updated icons, companion metadata and native screenshots"
+  "dashboardState": "Verified Unlisted with Draft release 1.5.0. Existing 1.2.0 was already Published inside the unlisted app and was preserved."
 }

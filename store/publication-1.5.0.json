@@ -1,0 +1,39 @@
+{
+  "version": "1.5.0",
+  "uuid": "e2fd86ec-dfb8-460c-afc1-ebe4d071657a",
+  "sourceCommit": "df0250600d237467e5b3525d40ad2cd4fcf825da",
+  "targets": [
+    "basalt",
+    "chalk",
+    "diorite",
+    "emery",
+    "flint",
+    "gabbro"
+  ],
+  "androidPackage": "com.lukesteuber.signalstation",
+  "embeddedPkjs": false,
+  "distribution": "unlisted-draft",
+  "installationHold": true,
+  "watch_source_commit": "df0250600d237467e5b3525d40ad2cd4fcf825da",
+  "watch_source_dirty": false,
+  "pbw_sha256": "7847e7b06dad4fc333d254e4a40604ee86730d6d35bfe7b7e3a603598b648a50",
+  "source_sha256": "cf85bdc83c0675bf455287cc3201fa2587648f99861268bd8b3e939a3e67de15",
+  "embedded_pkjs": false,
+  "physical_validation": "not performed; installation hold remains",
+  "appId": "37360ca4d9764881bd1d6f4d",
+  "visibility": "Unlisted",
+  "releaseStatus": "Draft",
+  "verifiedAt": "2026-09-11T00:44:26.610335+00:00",
+  "previousRelease": "1.2.0 already Published in unlisted listing; preserved without mutation",
+  "screenshots": {
+    "basalt": 1,
+    "chalk": 3,
+    "diorite": 3,
+    "emery": 3,
+    "flint": 0,
+    "gabbro": 0
+  },
+  "nativeEvidence": "Fresh app menu images viewed for basalt, chalk, diorite, emery. Flint and gabbro builds succeeded but their emulator stayed on a clock screen after installation and launch requests; no passing app screenshot claimed.",
+  "artifactVerification": "Local PBW digest verified before upload; dashboard extracted 1.5.0 and six targets. No server-download hash comparison.",
+  "physicalValidation": "Not performed. Owner watch not installed or modified. Installation hold retained."
+}
