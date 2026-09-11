@@ -310,7 +310,7 @@ static void dictated(DictationSession *session,DictationSessionStatus status,cha
 #endif
 static void ask(void) {
   if (busy()) { cancel_turn("Stopped."); return; }
-  if (!s_configured || !s_connected) { s_phone_record=false; s_view=VIEW_READER; snprintf(s_status,sizeof s_status,"Open Signal Station in the lab companion and configure a provider."); redraw(); return; }
+  if (!s_configured || !s_connected) { s_phone_record=false; s_view=VIEW_READER; snprintf(s_status,sizeof s_status,"Open Signal Station on your phone and configure a provider."); redraw(); return; }
 #ifdef PBL_MICROPHONE
   if (!s_dictation) s_dictation=dictation_session_create(401,dictated,NULL);
   if (!s_dictation) { snprintf(s_status,sizeof s_status,"Dictation is unavailable."); s_view=VIEW_READER; redraw(); return; }
@@ -325,7 +325,7 @@ static void ask(void) {
 static void local_action(const char *kind) {
   if (!s_connected || !s_bridge_ready) {
     s_view=VIEW_READER; s_scroll=0;
-    snprintf(s_status,sizeof s_status,"Open Signal Station in the lab companion. No answer provider is needed for Capture or History.");
+    snprintf(s_status,sizeof s_status,"Open Signal Station on your phone. Capture and History work without an answer provider.");
     s_ready_pending=true; flush(NULL); redraw(); return;
   }
   request(kind,NULL);
@@ -365,7 +365,7 @@ static void clicks(void *context) {
 static GRect body_bounds(GRect b) { int inset=PBL_IF_ROUND_ELSE(b.size.w/7,7); return GRect(inset,38,b.size.w-2*inset,b.size.h-76); }
 static GFont font(void) { return fonts_get_system_font(layer_get_bounds(s_canvas).size.h>=200 ? FONT_KEY_GOTHIC_24_BOLD : FONT_KEY_GOTHIC_18_BOLD); }
 static const char *body_text(void) {
-  if (s_view==VIEW_HELP) return "Home shortcuts\nUp: Capture\nSelect: Ask\nDown: History\n\nCapture saves selected readings on your phone without a language model request.\nHistory reads recent saved records without a provider.\nAsk speaks a question and uses your phone's answer provider.\n\nUp/Down scroll reports and history. Back cancels or returns home. Hold Select here to ask.\n\nChoose sources, manage saved history, and configure providers on the phone.";
+  if (s_view==VIEW_HELP) return "Home shortcuts\nUp: Capture\nSelect: Ask\nDown: History\n\nCapture saves selected readings on your phone without a language model request.\nHistory reads recent saved records without a provider.\nAsk uses watch dictation when available. Otherwise, ask on your phone.\n\nUp/Down scroll reports and history. Back cancels or returns home. Hold Select here to ask.\n\nChoose sources, manage saved history, and configure providers on the phone.";
   if (s_view==VIEW_REVIEW) { snprintf(s_display,sizeof s_display,"%s\n\n%s\n\nSelect: Send\nBack: keep on phone",s_prompt,s_review_context); return s_display; }
   if (s_view==VIEW_HISTORY) return s_history;
   if (s_view==VIEW_WAIT) { snprintf(s_display,sizeof s_display,"%s%s%s",s_prompt[0]?s_prompt:"",s_prompt[0]?"\n\n":"",s_status); return s_display; }
@@ -407,7 +407,7 @@ static void draw(Layer *layer,GContext *ctx) {
   graphics_draw_text(ctx,s_view==VIEW_MENU?"SIGNAL STATION":s_view==VIEW_HELP?"FIELD MANUAL":s_view==VIEW_REVIEW?"REVIEW DRAFT":s_view==VIEW_DICTATION?"LISTENING":s_view==VIEW_HISTORY?"RECENT HISTORY":busy()?"CONTACTING":"FIELD REPORT",fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD),GRect(inset,9,b.size.w-inset*2,24),GTextOverflowModeTrailingEllipsis,GTextAlignmentCenter,NULL);
   graphics_context_set_stroke_color(ctx,PBL_IF_COLOR_ELSE(GColorCyan,GColorWhite)); graphics_draw_line(ctx,GPoint(inset,34),GPoint(b.size.w-inset,34));
   graphics_context_set_text_color(ctx,GColorWhite);
-  const char *footer=s_view==VIEW_REVIEW?"Select: Send | Back: keep":busy()?"Back: stop":s_view==VIEW_MENU?(s_connected?(s_bridge_ready?"Hold Select: help":"Open lab companion"):"Phone disconnected"):"Up/Down: read";
+  const char *footer=s_view==VIEW_REVIEW?"Select: Send | Back: keep":busy()?"Back: stop":s_view==VIEW_MENU?(s_connected?(s_bridge_ready?"Hold Select: help":"Open phone app"):"Phone disconnected"):"Up/Down: read";
   graphics_draw_text(ctx,footer,fonts_get_system_font(FONT_KEY_GOTHIC_14),GRect(inset,b.size.h-32,b.size.w-2*inset,20),GTextOverflowModeTrailingEllipsis,GTextAlignmentCenter,NULL);
 }
 static void redraw(void) { if (s_canvas) layer_mark_dirty(s_canvas); if (s_body) layer_mark_dirty(s_body); }
