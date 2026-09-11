@@ -35,5 +35,15 @@
   },
   "nativeEvidence": "Fresh app menu images viewed for basalt, chalk, diorite, emery. Flint and gabbro builds succeeded but their emulator stayed on a clock screen after installation and launch requests; no passing app screenshot claimed.",
   "artifactVerification": "Local PBW digest verified before upload; dashboard extracted 1.5.0 and six targets. No server-download hash comparison.",
-  "physicalValidation": "Not performed. Owner watch not installed or modified. Installation hold retained."
+  "physicalValidation": "Not performed. Owner watch not installed or modified. Installation hold retained.",
+  "emulatorInvestigation": {
+    "checkedDate": "2026-09-10",
+    "firmware": "4.33.2",
+    "targets": [
+      "flint",
+      "gabbro"
+    ],
+    "result": "Explicit starts and a direct installer still returned to the existing watchface. Firmware logged an existing-watchface crash during switching, followed by an app fetch for the Signal Station UUID. No successful Signal Station render and no diagnosis of the physical settings wipe.",
+    "physicalWatchTouched": false
+  }
 }
