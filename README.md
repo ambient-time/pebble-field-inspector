@@ -4,8 +4,9 @@ I built Signal Station to ask questions from a Pebble with a little more context
 Speak a question, collect the readings you choose, and read a short answer on
 your wrist. The phone keeps the full conversation and survey history.
 
-By Luke Steuber. This experiment requires the matching **Pebble Inspector Lab**
-Android companion. The regular Pebble companion cannot run its native collectors.
+By Luke Steuber. Install the separate **Signal Station** Android app alongside
+your usual Pebble app. Signal Station owns chat, readings and local history;
+the Pebble app keeps the watch connected. The watch app is still in testing.
 
 ## On your wrist
 
@@ -23,9 +24,29 @@ sources, providers, conversations, and saved history. Exiting the watch does not
 clear saved records. The watch receives up to 900 UTF-8 bytes; open the phone for
 complete records and older history.
 
+## Chat from your wrist
+
+Ask a general question, then ask a follow-up in the same conversation. You do
+not need to take a capture first. Signal Station uses the provider and model you
+choose on the phone; provider usage charges apply. The phone keeps full replies
+and recent conversation context, while the watch receives a short answer that
+you can scroll. Dictation depends on the watch and Pebble host support.
+
+For questions about saved readings, use **Ask** on the phone to choose
+attachments, review the exact outgoing context and send. Readings, saved history
+and confirmed memories are optional context for chat. Ordinary chat also works
+without the watch. See the [user guide and downloads](https://dr.eamer.dev/downloads/apps/signal-station/).
+
+Capture receipts are prepared by the phone. The watch's short display allowance
+is separate from the phone's saved-capture and chat-context budgets. A capture
+limit warning refers to unsaved phone readings; a scan-retention warning refers
+to additional radio results outside the bounded scan. The phone's History shows
+source coverage.
+
 ## Phone setup
 
-Install the matching Signal Station lab companion, connect your watch, and select
+Install Signal Station on Android, connect your watch through the usual Pebble
+app, and select
 your recognition and answer providers in its native settings. Provider keys stay
 in protected phone storage. Watch settings never open a web form for keys.
 Stock recognition availability and app-specific OpenAI recognition are separate
