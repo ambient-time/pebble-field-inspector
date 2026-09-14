@@ -118,6 +118,7 @@ static const char *selection;
 static time_t s_collected_at;
 static SignalMotion s_motion;
 static struct { int magnetic_heading, compass_status; } s_compass;
+static unsigned long long s_compass_received_ms;
 enum { CompassStatusCalibrated, CompassStatusCalibrating };
 #define TRIG_MAX_ANGLE 65536
 static bool enabled(const char *key) { return !strcmp(selection,key); }
@@ -127,6 +128,11 @@ static time_t day_start(int ago) { return s_collected_at-ago*86400; }
 static void append_observation(const char *key,const char *value,const char *unit,const char *status,const char *period,time_t start,time_t end,bool date) {
   if(enabled(key))strcat(s_snapshot,"{}");
 }
+static void append_observation_ms(const char *key,const char *value,const char *unit,const char *status,const char *period,int64_t start,int64_t end,bool measured,const char *fields,bool date) {
+  if(enabled(key))strcat(s_snapshot,"{}");
+}
+static void minute_history(void) { if(enabled("watch.minute_history"))strcat(s_snapshot,"{}"); }
+static void motion_observation(void) { if(enabled("watch.motion"))strcat(s_snapshot,"{}"); (void)s_motion; }
 static void cancel_turn(const char *message) { assert(false); }
 static void flush(void *unused) { sends++; }
 ''' + walker + r'''
@@ -134,13 +140,13 @@ static void run(const char *key, int expected) {
   selection=key;depth=peak=sends=s_stage=0;s_collecting=true;s_snapshot_pending=false;s_sampling=false;
   next_snapshot();
   while(s_collecting) { assert(s_snapshot_pending);s_snapshot_pending=false;next_snapshot(); }
-  assert(sends==expected && s_stage==20 && s_snapshot_complete && peak==1);
+  assert(sends==expected && s_stage==21 && s_snapshot_complete && peak==1);
 }
 int main(void) {
-  run("",1);run("watch.battery",2);run("watch.motion",1);run("health.steps",9);
-  selection="watch.motion";s_stage=19;s_collecting=true;s_snapshot_pending=false;s_sampling=true;
-  next_snapshot();assert(s_stage==19 && !s_snapshot_pending);
-  s_sampling=false;next_snapshot();assert(s_stage==20 && s_snapshot_pending && !s_collecting);
+  run("",1);run("watch.battery",2);run("watch.motion",1);run("health.steps",9);run("watch.minute_history",2);
+  selection="watch.motion";s_stage=20;s_collecting=true;s_snapshot_pending=false;s_sampling=true;
+  next_snapshot();assert(s_stage==20 && !s_snapshot_pending);
+  s_sampling=false;next_snapshot();assert(s_stage==21 && s_snapshot_pending && !s_collecting);
   puts("PASS sparse capture uses one stack frame, preserves batches and waits for sampling");
 }
 '''

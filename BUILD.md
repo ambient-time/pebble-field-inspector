@@ -3,6 +3,29 @@
 Use Pebble CLI 5.0.39, SDK 4.33.1, Node.js, Python 3, and a host C compiler.
 No provider key, service account, or package download is required for watch checks.
 
+## Current standalone addon
+
+The Android Signal Station app and native Pebble addon cooperate through the
+existing Pebble Android host. The current addon contains no PKJS. After committing
+the reviewed watch source, build it from the companion repository:
+
+```sh
+python3 scripts/build-signal-addon-watch.py ../pebble-field-inspector \
+  --descriptor signalApp/watch-collection-preview.json \
+  --output signalApp/build/watch-collection-preview
+```
+
+The collection-preview descriptor pins the source commit and separate development
+version. Keep the existing `watch-release.json` and older immutable artifacts.
+The builder verifies the UUID, companion package, six binaries and absence of
+JavaScript, then records SHA-256 checksums. It never installs the package.
+
+The [watch collection contract and firmware roadmap](docs/watch-collection.md)
+describe optional minute history, SDK timestamp provenance, motion variance and
+the remaining physical checks.
+
+## Source checks and historical PKJS package
+
 ```sh
 npm run test:client
 pebble sdk activate 4.33.1
@@ -54,16 +77,20 @@ phone settings or keys change, without disturbing an active operation.
 Watch observations use epoch **milliseconds** for collection, measurement, and
 window timestamps. Health durations are **seconds**. Every observation includes
 key/source/value/unit/status/period, with local `date` for day aggregates.
-Unknown or denied data has a null value and explicit status. Magnetic heading is
+Unknown or denied scalar data has a null value and explicit status. The history
+bundle can retain a structured coverage result with no valid readings. Magnetic heading is
 degrees clockwise from magnetic north. Motion has sample count, mean x/y/z in mg,
-and peak absolute axis in mg; these are measurements rather than activity guesses.
+and peak absolute axis in mg, with population variance in mg², SDK timestamp
+span and exclusion counts. These do not identify an activity.
 
 ## Acceptance
 
 Tests cover cancellation, late replies, duplicate requests and acknowledgements,
 same-ID phone-record transitions, serialized survey completion, native config
 events, UTF-8 bounds, bounded motion aggregation, and actual day helper behavior
-across spring/fall DST. Historical audio tests and the old server are outside
+across spring/fall DST. The C history contract tests exercise complete, partial,
+missing, invalid and denied records and emit a fixture for Android parser tests.
+Historical audio tests and the old server are outside
 the active text-only release path.
 
 Physical acceptance needs Time 2 + Pixel 9a: dictation with both recognition

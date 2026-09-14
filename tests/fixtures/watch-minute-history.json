@@ -1,0 +1,45 @@
+[
+  {
+    "key": "watch.minute_history",
+    "source": "watch",
+    "value": {
+      "schema": 1,
+      "requested_minutes": 15,
+      "returned_minutes": 3,
+      "valid_minutes": 2,
+      "requested_start_ms": 1789343100000,
+      "requested_end_ms": 1789344000000,
+      "columns": [
+        "steps",
+        "vmc",
+        "orientation",
+        "light",
+        "heart_rate_bpm"
+      ],
+      "minutes": [
+        [
+          0,
+          0,
+          0,
+          null,
+          null
+        ],
+        null,
+        [
+          3,
+          300,
+          16,
+          4,
+          72
+        ]
+      ]
+    },
+    "unit": "minute_records",
+    "collectedAt": 1789344037000,
+    "status": "available",
+    "period": "recent_15_minutes",
+    "windowStart": 1789343580000,
+    "windowEnd": 1789343760000,
+    "measuredAt": 1789343760000
+  }
+]

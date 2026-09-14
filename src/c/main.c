@@ -1,6 +1,7 @@
 // Signal Station — Luke Steuber. Speak, survey, and read.
 #include <pebble.h>
 #include "signal_math.h"
+#include "signal_history.h"
 #define TEXT_CAP 1024
 #define SNAPSHOT_CAP 1900
 #define PERSIST_REQUEST_ID 1
@@ -21,6 +22,7 @@ static uint32_t s_outbox_id;
 static AppTimer *s_outbox_timer, *s_timeout_timer, *s_sample_timer;
 static SignalMotion s_motion;
 static CompassHeadingData s_compass;
+static uint64_t s_compass_received_ms;
 static time_t s_collected_at;
 #ifdef PBL_MICROPHONE
 static DictationSession *s_dictation;
@@ -115,18 +117,33 @@ static void outbox_failed(DictionaryIterator *iter, AppMessageResult reason, voi
 }
 static void inbox_dropped(AppMessageResult reason, void *context) { cancel_turn("Incomplete phone message. Try again."); }
 static void accel(AccelData *samples, uint32_t count) {
-  for (uint32_t i=0; i<count; i++) signal_motion_add(&s_motion,samples[i].x,samples[i].y,samples[i].z,samples[i].did_vibrate);
+  if (!s_sampling) return;
+  for (uint32_t i=0; i<count; i++) signal_motion_add(&s_motion,samples[i].x,samples[i].y,samples[i].z,samples[i].did_vibrate,samples[i].timestamp);
 }
-static void compass(CompassHeadingData data) { s_compass=data; }
+static void compass(CompassHeadingData data) {
+  if (!s_sampling) return;
+  time_t seconds; uint16_t milliseconds;
+  time_ms(&seconds,&milliseconds);
+  s_compass=data; s_compass_received_ms=(uint64_t)seconds*1000+milliseconds;
+}
+static void append_observation_ms(const char *key, const char *value, const char *unit, const char *status,
+                                  const char *period, int64_t from, int64_t end, bool measured,
+                                  const char *fields, bool date) {
+  if (!enabled(key)) return;
+  size_t n=strlen(s_snapshot); char date_text[40]="", time_fields[180]="";
+  if (date) { time_t seconds=from/1000; char day[16]; strftime(day,sizeof day,"%Y-%m-%d",localtime(&seconds)); snprintf(date_text,sizeof date_text,",\"date\":\"%s\"",day); }
+  if (from>=0 && end>=0) {
+    snprintf(time_fields,sizeof time_fields,",\"windowStart\":%llu,\"windowEnd\":%llu",(unsigned long long)from,(unsigned long long)end);
+    if (measured) { size_t size=strlen(time_fields); snprintf(time_fields+size,sizeof time_fields-size,",\"measuredAt\":%llu",(unsigned long long)end); }
+  }
+  snprintf(s_snapshot+n,sizeof s_snapshot-n,
+    "%s{\"key\":\"%s\",\"source\":\"watch\",\"value\":%s,\"unit\":\"%s\",\"collectedAt\":%ld000,\"status\":\"%s\",\"period\":\"%s\"%s%s%s%s}",
+    n>1 ? "," : "",key,value,unit,(long)s_collected_at,status,period,time_fields,date_text,fields?",\"fields\":" : "",fields?fields:"");
+}
 static void append_observation(const char *key, const char *value, const char *unit, const char *status,
                                const char *period, time_t from, time_t end, bool date) {
-  if (!enabled(key)) return;
-  size_t n=strlen(s_snapshot); char date_text[40]="", time_fields[120]="";
-  if (date) { char day[16]; strftime(day,sizeof day,"%Y-%m-%d",localtime(&from)); snprintf(date_text,sizeof date_text,",\"date\":\"%s\"",day); }
-  if (strcmp(status,"timestamp_unknown")) snprintf(time_fields,sizeof time_fields,",\"measuredAt\":%ld000,\"windowStart\":%ld000,\"windowEnd\":%ld000",(long)end,(long)from,(long)end);
-  snprintf(s_snapshot+n,sizeof s_snapshot-n,
-    "%s{\"key\":\"%s\",\"source\":\"watch\",\"value\":%s,\"unit\":\"%s\",\"collectedAt\":%ld000,\"status\":\"%s\",\"period\":\"%s\"%s%s}",
-    n>1 ? "," : "",key,value,unit,(long)s_collected_at,status,period,time_fields,date_text);
+  bool known=strcmp(status,"timestamp_unknown")!=0;
+  append_observation_ms(key,value,unit,status,period,known?(int64_t)from*1000:-1,known?(int64_t)end*1000:-1,known,NULL,date);
 }
 #ifdef PBL_HEALTH
 static const char *access_status(HealthServiceAccessibilityMask mask) {
@@ -147,6 +164,51 @@ static bool sleep_episode(HealthActivity activity,time_t start,time_t end,void *
   return true;
 }
 #endif
+static void minute_history(void) {
+  if (!enabled("watch.minute_history")) return;
+  time_t requested_end=s_collected_at-s_collected_at%60,requested_start=requested_end-SIGNAL_HISTORY_MINUTES*60;
+  time_t start=requested_start,end=requested_end;
+  SignalMinute minutes[SIGNAL_HISTORY_MINUTES]={0};
+  uint32_t count=0;
+  const char *status="not_supported", *fields=NULL;
+#ifdef PBL_HEALTH
+  HealthServiceAccessibilityMask mask=health_service_metric_accessible(HealthMetricStepCount,requested_start,requested_end);
+  status=mask & HealthServiceAccessibilityMaskNoPermission ? "permission_denied" : "unavailable";
+  if (!(mask & HealthServiceAccessibilityMaskNoPermission)) {
+    HealthMinuteData records[SIGNAL_HISTORY_MINUTES]={0};
+    count=health_service_get_minute_history(records,SIGNAL_HISTORY_MINUTES,&start,&end);
+    if (!signal_history_bounds(count,(int64_t)start*1000,(int64_t)end*1000,(int64_t)requested_start*1000,(int64_t)requested_end*1000)) {
+      count=0; fields="{\"reason\":\"invalid_history_window\"}";
+    }
+    for (uint32_t i=0;i<count;i++) minutes[i]=(SignalMinute){.steps=records[i].steps,.vmc=records[i].vmc,
+      .orientation=records[i].orientation,.light=records[i].light,.heart_rate_bpm=records[i].heart_rate_bpm,.invalid=records[i].is_invalid};
+    if (signal_history_valid(minutes,count)) status="available";
+  }
+#endif
+  // Collection runs on the app thread. Keep its bounded formatter off the small
+  // callback stack, including when the compiler inlines it into next_snapshot.
+  static char value[SIGNAL_HISTORY_VALUE_CAP];
+  if (!signal_history_format(value,sizeof value,minutes,count,(int64_t)start*1000,(int64_t)end*1000,(int64_t)requested_start*1000,(int64_t)requested_end*1000)) {
+    cancel_turn("Watch history exceeded its limit."); return;
+  }
+  append_observation_ms("watch.minute_history",value,"minute_records",status,"recent_15_minutes",
+    count?(int64_t)start*1000:-1,count?(int64_t)end*1000:-1,signal_history_valid(minutes,count)>0,fields,false);
+}
+static void motion_observation(void) {
+  if (!enabled("watch.motion")) return;
+  static char value[620];
+  snprintf(value,sizeof value,
+    "{\"samples\":%lu,\"mean_x\":%ld,\"mean_y\":%ld,\"mean_z\":%ld,\"peak_abs_axis\":%d,\"variance_mg2\":%lu,"
+    "\"received_samples\":%lu,\"vibration_excluded\":%lu,\"timestamp_rejected\":%lu,\"capacity_excluded\":%lu,"
+    "\"first_sample_ms\":%llu,\"last_sample_ms\":%llu,\"requested_hz\":10,\"requested_duration_ms\":5000,\"timing\":\"sdk_epoch_ms\"}",
+    (unsigned long)s_motion.count,(long)(s_motion.count?s_motion.x/(int)s_motion.count:0),
+    (long)(s_motion.count?s_motion.y/(int)s_motion.count:0),(long)(s_motion.count?s_motion.z/(int)s_motion.count:0),s_motion.peak,
+    (unsigned long)signal_motion_variance(&s_motion),(unsigned long)s_motion.received,(unsigned long)s_motion.vibration_excluded,
+    (unsigned long)s_motion.timestamp_rejected,(unsigned long)s_motion.capacity_excluded,
+    (unsigned long long)s_motion.first_ms,(unsigned long long)s_motion.last_ms);
+  append_observation_ms("watch.motion",value,"mg",s_motion.count?"fresh":"unavailable","5_second_sample",
+    s_motion.count?(int64_t)s_motion.first_ms:-1,s_motion.count?(int64_t)s_motion.last_ms:-1,s_motion.count>0,NULL,false);
+}
 static time_t day_start(int ago) {
   struct tm day=*localtime(&s_collected_at); day.tm_hour=day.tm_min=day.tm_sec=0; day.tm_mday-=ago; day.tm_isdst=-1;
   return mktime(&day); // Local calendar days preserve daylight-saving boundaries.
@@ -215,15 +277,18 @@ static void next_snapshot(void) {
       append_observation("health.sleep","null","seconds","unavailable","last_completed_sleep_2h_heuristic",s_collected_at-48*3600,s_collected_at,false);
   #endif
     } else if (stage==19) {
+      minute_history();
+      if (!s_collecting) return;
+    } else if (stage==20) {
       if (s_sampling) { s_stage--; return; }
-      snprintf(value,sizeof value,"{\"samples\":%lu,\"mean_x\":%ld,\"mean_y\":%ld,\"mean_z\":%ld,\"peak_abs_axis\":%d}",(unsigned long)s_motion.count,(long)(s_motion.count?s_motion.x/(int)s_motion.count:0),(long)(s_motion.count?s_motion.y/(int)s_motion.count:0),(long)(s_motion.count?s_motion.z/(int)s_motion.count:0),s_motion.peak);
-      append_observation("watch.motion",s_motion.count?value:"null","mg",s_motion.count?"fresh":"unavailable","5_second_sample",s_collected_at,s_collected_at+5,false);
+      motion_observation();
       snprintf(value,sizeof value,"%ld",(long)(((TRIG_MAX_ANGLE-s_compass.magnetic_heading)*360LL/TRIG_MAX_ANGLE)%360));
       bool calibrated=s_compass.compass_status==CompassStatusCalibrated;
-      append_observation("watch.compass",calibrated?value:"null","degrees_magnetic_clockwise",calibrated?"fresh":s_compass.compass_status==CompassStatusCalibrating?"calibrating":"unavailable","current",s_collected_at,s_collected_at+5,false);
+      char fields[100]; snprintf(fields,sizeof fields,"{\"timing\":\"callback_received\",\"received_at_ms\":\"%llu\"}",(unsigned long long)s_compass_received_ms);
+      append_observation_ms("watch.compass",calibrated?value:"null","degrees_magnetic_clockwise",calibrated?"timestamp_unknown":s_compass.compass_status==CompassStatusCalibrating?"calibrating":"unavailable","current",-1,-1,false,s_compass_received_ms?fields:NULL,false);
     }
     if (strlen(s_snapshot)+2>=sizeof s_snapshot) { cancel_turn("Watch readings exceeded their limit."); return; }
-    strcat(s_snapshot,"]"); s_snapshot_complete=stage>=19;
+    strcat(s_snapshot,"]"); s_snapshot_complete=stage>=20;
     if (strlen(s_snapshot)==2 && !s_snapshot_complete) continue;
     s_snapshot_pending=true;
     if (s_snapshot_complete) s_collecting=false;
@@ -231,12 +296,12 @@ static void next_snapshot(void) {
     return;
   }
 }
-static void sample_done(void *unused) { s_sample_timer=NULL; stop_sampling(); if (s_collecting && s_stage==19) next_snapshot(); }
+static void sample_done(void *unused) { s_sample_timer=NULL; stop_sampling(); if (s_collecting && s_stage==20) next_snapshot(); }
 static void collect(uint32_t id) {
   if (id==s_collection_id) return;
   s_collection_id=id;
   stop_sampling(); s_request_id=id; s_view=VIEW_WAIT; s_collecting=true; s_stage=0;
-  s_collected_at=time(NULL); memset(&s_motion,0,sizeof s_motion); s_compass.compass_status=CompassStatusUnavailable;
+  s_collected_at=time(NULL); memset(&s_motion,0,sizeof s_motion); s_compass.compass_status=CompassStatusUnavailable; s_compass_received_ms=0;
   if (enabled("watch.motion") || enabled("watch.compass")) {
     s_sampling=true;
     if (enabled("watch.motion")) { accel_data_service_subscribe(10,accel); accel_service_set_sampling_rate(ACCEL_SAMPLING_10HZ); }

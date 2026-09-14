@@ -7,18 +7,18 @@ By Luke Steuber. September 13, 2026.
 This increment adds a selected, bounded history source and improves the existing
 five-second motion measurement. It uses public Pebble APIs and the existing
 AppMessage path. Source baseline: watch `8872957`, companion `003bd5a4`.
-Implementation and physical validation are separate milestones. No owner-watch
+Implementation and host validation are complete; physical validation is open. No owner-watch
 installation, pairing change, firmware flash or public release is part of this
 increment.
 
-## Implementation sequence
+## Implemented behavior
 
-1. Add `watch.minute_history`, off by default and absent from presets. Its source
+1. `watch.minute_history` is off by default and absent from presets and bulk enable. Its source
    label discloses movement, light and heart rate over the last 15 minutes.
 2. Read the preceding 15 completed UTC minutes with one
    `health_service_get_minute_history` call. Preserve returned bounds, invalid
    records and missing coverage. Send one bounded observation.
-3. Retain accelerometer timestamps, sample exclusions and population variance
+3. Retain accelerometer SDK timestamps, sample exclusions and population variance
    in the existing `watch.motion` record. Keep the requested 10 Hz, five-second
    capture. Record compass callback receipt time without inventing acquisition time.
 4. Accept and explain the additive history contract in the standalone Android
@@ -30,7 +30,7 @@ increment.
 
 ## Contract
 
-Planned history key: `watch.minute_history`; period: `recent_15_minutes`;
+History key: `watch.minute_history`; period: `recent_15_minutes`;
 source: `watch`; unit: `minute_records`. This source is explicitly selected as a
 bundle; enabling any older watch or health source does not enable it.
 
@@ -46,10 +46,33 @@ or compass heading. VMC is a movement count, not an activity diagnosis.
 Request end is the start of the current UTC minute; start is 900 seconds earlier.
 Nonempty results use the SDK's actual returned start/end (exclusive end), with
 exactly one row per returned minute. A zero return has no measured window because
-the SDK declares its output times meaningless. Coverage distinguishes returned,
+the SDK declares its output times meaningless. Nonempty, entirely invalid results
+retain the returned window and null rows with unavailable status and no `measuredAt`.
+For valid history, `measuredAt` identifies the returned window's exclusive end.
+Coverage distinguishes returned,
 valid, invalid and missing minutes. The value must remain below 1,000 UTF-8 bytes;
 each AppMessage snapshot must remain below 1,900 bytes. Every observation remains
 inside the existing 12-observation packet and 150-observation capture budgets.
+
+Motion retains its prior means and peak and adds `variance_mg2`, the sum of
+per-axis population variances in mg². It records received/accepted counts and
+vibration, timestamp and capacity exclusions. Zero or nonincreasing timestamps
+are rejected. A populated record uses the first/last accepted SDK timestamps;
+an empty record keeps the exclusion counts but has no measured window.
+The requested rate/duration remain 10 Hz and five seconds, not a guarantee of
+50 delivered samples. Motion variation does not establish a specific activity.
+
+`timing: sdk_epoch_ms` identifies SDK-supplied epoch timestamps. The inspected
+[accelerometer service](https://github.com/coredevices/PebbleOS/blob/5503dd403f39e1393b8684314dc299e611fe5a2d/src/fw/applib/accel_service.c)
+reconstructs subsequent samples from a batch start plus interval. The LSM6DSO
+driver takes its epoch from the RTC at FIFO read; these are not independently
+verified hardware acquisition times. Compass has only callback receipt timing,
+so it keeps `timestamp_unknown` and omits a measured window.
+
+Android preserves the matrix as historical evidence, shows missing and invalid
+minutes and explains the individual rows. It does not flatten the bundle into a
+fresh scalar trend. Existing watches that omit this new key yield an explicit
+unavailable source when it is selected on the phone.
 
 ## Firmware research roadmap
 
@@ -90,9 +113,25 @@ Sources: [HealthService](https://developer.repebble.com/docs/c/Foundation/Event_
 
 - **Observed:** source/SDK support and the firmware gaps above; both repositories
   clean at the stated baselines.
-- **Measured:** the baseline motion formula reports identical means and peak for
-  stationary `(0,0,1000)` and alternating `(±500,0,1000)` mg samples.
-- **Planned:** implementation, tests and candidate builds in this increment.
+- **Measured, synthetic:** the prior motion fields report identical means and peak
+  for stationary `(0,0,1000)` and alternating `(±500,0,1000)` mg samples. The new
+  variance distinguishes them: 0 versus 250,000 mg².
+- **Measured, host:** `npm run test:client` passes the 32 bridge protocol cases,
+  motion/UTF-8, actual button and DST helpers, sparse batch flow and actual C
+  collector serialization. Cases include complete/partial/invalid/empty/denied/
+  unsupported history, malformed bounds, late callbacks and packet limits.
+  The largest tested synthetic snapshot is 852 bytes; all values are under 1,000.
+  The checked-in partial fixture is generated by the production C collector and
+  consumed by Android's parser tests.
+- **Measured, build:** SDK 4.33.1 compiles Basalt, Chalk, Diorite, Emery, Flint and
+  Gabbro. The bounded history and motion formatter buffers use static storage to
+  avoid enlarging the callback stack. Basalt's compiled collector frame fell from
+  1,272 to 456 bytes after that correction; its observation formatter adds 344
+  bytes before SDK calls. This is disassembly evidence, not a runtime stack-watermark
+  measurement. The six build reports leave at least 39,240 bytes of heap.
+  See the companion's collection descriptor
+  and build receipt for the separately pinned no-PKJS development candidate.
+- **Planned:** physical acceptance and the firmware work above.
 - **Unavailable:** current owner-watch identity/firmware and physical sensor,
   battery, Bluetooth and accessibility results. Historical emulator evidence is
   recorded separately in [addon preparation](signal-station-addon-preparation.md).

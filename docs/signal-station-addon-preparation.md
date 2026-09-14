@@ -6,6 +6,15 @@ The next standalone addon is built from this native source using the companion r
 
 The existing Pebble listing must remain Unlisted / Draft. The reported settings wipe remains unresolved and the recovered owner watch must not be reinstalled for testing. Native builds, emulator screenshots, store upload and physical/stock-host interoperability are separate evidence. The existing public 1.4.0 preview is not replaced by these private draft bytes without a separately closed device gate.
 
+## September 13 collection increment
+
+Optional 15-minute watch history and improved motion timing/variation are
+implemented and tested on the host. All six native targets compile. The
+[collection contract and firmware roadmap](watch-collection.md) record the exact
+scope, synthetic checks and remaining work. The companion keeps a separate pinned
+collection-preview descriptor; the 1.5.0 descriptor and prior emulator evidence
+remain historical. No new emulator or physical-device result is claimed here.
+
 ## September 11 stock-host integration
 
 The unchanged 1.5.0 draft completed an isolated stock-host test with the preserved
