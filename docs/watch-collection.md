@@ -182,3 +182,23 @@ backlight control. Keeping the app open with the light on uses more battery.
 All six target builds compile this behavior. Physical illumination and timeout
 behavior still require observation on the watch; installation and app-message
 acknowledgements alone do not establish that result.
+
+## Direct-button home screen
+
+The home screen labels the physical right-side buttons beside their actions:
+UP captures, SELECT asks, and DOWN opens history. All three use the same button
+shape, joined by a side rail; there is no selected row or radio-style indicator.
+The heading says “PRESS RIGHT BUTTONS.” Larger displays include brief action
+descriptions, while smaller displays retain the action names and button labels.
+Cyan becomes white on monochrome watches. Holding Select still opens help;
+report scrolling, Back, collection and backlight behavior are unchanged.
+
+The September 13 UI pass compiled all six targets and passed the 32 protocol
+tests plus the existing native collector, button, scrolling and Back checks.
+Native screenshots were inspected on isolated SDK emulators: Emery at 200 × 228,
+Diorite at 144 × 168 and round Chalk at 180 × 180. On each, the three actions and
+button labels fit, holding Select opened help, Down reached the final help text,
+and Back returned home. The screenshot host acknowledged watch messages only;
+it supplied no companion results or provider replies. These are rendering and
+button-navigation results, separate from physical button use and illumination.
+Gabbro, Flint and Basalt have build evidence only for this UI revision.

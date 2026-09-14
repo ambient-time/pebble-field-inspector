@@ -441,7 +441,7 @@ static void clicks(void *context) {
   window_single_repeating_click_subscribe(BUTTON_ID_DOWN,150,down_click);
   window_single_click_subscribe(BUTTON_ID_BACK,back_click);
 }
-static GRect body_bounds(GRect b) { int inset=PBL_IF_ROUND_ELSE(b.size.w/7,7); return GRect(inset,38,b.size.w-2*inset,b.size.h-76); }
+static GRect body_bounds(GRect b) { int inset=PBL_IF_ROUND_ELSE(b.size.w/7,7); return GRect(inset,46,b.size.w-2*inset,b.size.h-80); }
 static GFont font(void) { return fonts_get_system_font(layer_get_bounds(s_canvas).size.h>=200 ? FONT_KEY_GOTHIC_24_BOLD : FONT_KEY_GOTHIC_18_BOLD); }
 static const char *body_text(void) {
   if (s_view==VIEW_HELP) return "Home shortcuts\nUp: Capture\nSelect: Ask\nDown: History\n\nCapture saves selected readings on your phone without a language model request.\nHistory reads recent saved records without a provider.\nAsk uses watch dictation when available. Otherwise, ask on your phone.\n\nUp/Down scroll reports and history. Back cancels or returns home. Hold Select here to ask.\n\nChoose sources, manage saved history, and configure providers on the phone.";
@@ -455,23 +455,31 @@ static const char *body_text(void) {
 static void draw_body(Layer *layer,GContext *ctx) {
   GRect b=layer_get_bounds(layer); graphics_context_set_text_color(ctx,GColorWhite);
   if (s_view==VIEW_MENU) {
+    const char *keys[]={"UP","SELECT","DOWN"};
+    const char *details[]={"Save readings","Speak a question","Saved records"};
     int h=b.size.h/3;
+    int rail=b.size.w-54;
+    GColor accent=PBL_IF_COLOR_ELSE(GColorCyan,GColorWhite);
+    GFont action_font=fonts_get_system_font(h>=40?FONT_KEY_GOTHIC_28_BOLD:FONT_KEY_GOTHIC_18_BOLD);
+    GFont key_font=fonts_get_system_font(FONT_KEY_GOTHIC_14_BOLD);
+    graphics_context_set_stroke_color(ctx,accent);
+    graphics_draw_line(ctx,GPoint(b.size.w-1,h/2),GPoint(b.size.w-1,2*h+h/2));
     for (int i=0;i<3;i++) {
       int cy=i*h+h/2;
-      graphics_context_set_stroke_color(ctx,PBL_IF_COLOR_ELSE(GColorCyan,GColorWhite));
-      graphics_context_set_fill_color(ctx,PBL_IF_COLOR_ELSE(GColorCyan,GColorWhite));
-      if (i==0) { // Capture: a receiving ring and central sample.
-        graphics_draw_circle(ctx,GPoint(10,cy),8);
-        graphics_fill_circle(ctx,GPoint(10,cy),3);
-      } else if (i==1) { // Ask: speech bubble.
-        graphics_draw_round_rect(ctx,GRect(2,cy-7,17,12),3);
-        graphics_draw_line(ctx,GPoint(5,cy+5),GPoint(5,cy+9));
-        graphics_draw_line(ctx,GPoint(5,cy+9),GPoint(10,cy+5));
-      } else { // History: three saved lines.
-        for (int j=-1;j<=1;j++) graphics_draw_line(ctx,GPoint(3,cy+j*5),GPoint(18,cy+j*5));
-      }
+      // Every row is a direct physical-button action, never a selected item.
+      graphics_context_set_stroke_color(ctx,accent);
+      graphics_draw_line(ctx,GPoint(rail+48,cy),GPoint(b.size.w-1,cy));
+      graphics_context_set_fill_color(ctx,accent);
+      graphics_fill_rect(ctx,GRect(rail,cy-9,49,19),2,GCornersAll);
+      graphics_context_set_text_color(ctx,GColorBlack);
+      graphics_draw_text(ctx,keys[i],key_font,GRect(rail-1,cy-12,51,20),GTextOverflowModeFill,GTextAlignmentCenter,NULL);
       graphics_context_set_text_color(ctx,GColorWhite);
-      graphics_draw_text(ctx,s_items[i],font(),GRect(27,i*h-2,b.size.w-27,h),GTextOverflowModeTrailingEllipsis,GTextAlignmentLeft,NULL);
+      graphics_draw_text(ctx,s_items[i],action_font,GRect(0,cy-(h>=40?24:13),rail-5,h),GTextOverflowModeTrailingEllipsis,GTextAlignmentLeft,NULL);
+      if (h>=40) graphics_draw_text(ctx,details[i],fonts_get_system_font(FONT_KEY_GOTHIC_14),GRect(1,cy+5,rail-5,18),GTextOverflowModeTrailingEllipsis,GTextAlignmentLeft,NULL);
+      if (i<2) {
+        graphics_context_set_stroke_color(ctx,PBL_IF_COLOR_ELSE(GColorDarkGray,GColorWhite));
+        graphics_draw_line(ctx,GPoint(0,(i+1)*h-1),GPoint(rail-7,(i+1)*h-1));
+      }
     }
     return;
   }
@@ -483,10 +491,14 @@ static void draw(Layer *layer,GContext *ctx) {
   GRect b=layer_get_bounds(layer); int inset=PBL_IF_ROUND_ELSE(b.size.w/7,7);
   graphics_context_set_fill_color(ctx,GColorBlack); graphics_fill_rect(ctx,b,0,GCornerNone);
   graphics_context_set_text_color(ctx,PBL_IF_COLOR_ELSE(GColorCyan,GColorWhite));
-  graphics_draw_text(ctx,s_view==VIEW_MENU?"SIGNAL STATION":s_view==VIEW_HELP?"FIELD MANUAL":s_view==VIEW_REVIEW?"REVIEW DRAFT":s_view==VIEW_DICTATION?"LISTENING":s_view==VIEW_HISTORY?"RECENT HISTORY":busy()?"CONTACTING":"FIELD REPORT",fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD),GRect(inset,9,b.size.w-inset*2,24),GTextOverflowModeTrailingEllipsis,GTextAlignmentCenter,NULL);
-  graphics_context_set_stroke_color(ctx,PBL_IF_COLOR_ELSE(GColorCyan,GColorWhite)); graphics_draw_line(ctx,GPoint(inset,34),GPoint(b.size.w-inset,34));
+  graphics_draw_text(ctx,s_view==VIEW_MENU?"SIGNAL STATION":s_view==VIEW_HELP?"FIELD MANUAL":s_view==VIEW_REVIEW?"REVIEW DRAFT":s_view==VIEW_DICTATION?"LISTENING":s_view==VIEW_HISTORY?"RECENT HISTORY":busy()?"CONTACTING":"FIELD REPORT",fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD),GRect(inset,s_view==VIEW_MENU?PBL_IF_ROUND_ELSE(10,2):9,b.size.w-inset*2,24),GTextOverflowModeTrailingEllipsis,GTextAlignmentCenter,NULL);
+  if (s_view==VIEW_MENU) {
+    graphics_context_set_text_color(ctx,GColorWhite);
+    graphics_draw_text(ctx,"PRESS RIGHT BUTTONS",fonts_get_system_font(FONT_KEY_GOTHIC_14),GRect(inset,26,b.size.w-inset*2,18),GTextOverflowModeTrailingEllipsis,GTextAlignmentCenter,NULL);
+  }
+  graphics_context_set_stroke_color(ctx,PBL_IF_COLOR_ELSE(GColorCyan,GColorWhite)); graphics_draw_line(ctx,GPoint(inset,s_view==VIEW_MENU?44:34),GPoint(b.size.w-inset,s_view==VIEW_MENU?44:34));
   graphics_context_set_text_color(ctx,GColorWhite);
-  const char *footer=s_view==VIEW_REVIEW?"Select: Send | Back: keep":busy()?"Back: stop":s_view==VIEW_MENU?(s_connected?(s_bridge_ready?"Hold Select: help":"Open phone app"):"Phone disconnected"):"Up/Down: read";
+  const char *footer=s_view==VIEW_REVIEW?"Select: Send | Back: keep":busy()?"Back: stop":s_view==VIEW_MENU?(s_connected?(s_bridge_ready?"Hold SELECT: help":"Open phone app"):"Phone disconnected"):"Up/Down: read";
   graphics_draw_text(ctx,footer,fonts_get_system_font(FONT_KEY_GOTHIC_14),GRect(inset,b.size.h-32,b.size.w-2*inset,20),GTextOverflowModeTrailingEllipsis,GTextAlignmentCenter,NULL);
 }
 static void redraw(void) { if (s_canvas) layer_mark_dirty(s_canvas); if (s_body) layer_mark_dirty(s_body); }
