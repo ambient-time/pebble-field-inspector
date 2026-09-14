@@ -1,13 +1,13 @@
 {
   "title": "Signal Station",
   "author": "Luke Steuber",
-  "version": "1.5.0",
+  "version": "1.6.4",
   "uuid": "e2fd86ec-dfb8-460c-afc1-ebe4d071657a",
   "type": "watchapp",
   "desiredVisibility": "Unlisted",
-  "desiredReleaseStatus": "Draft",
-  "description": "Signal Station keeps selected readings and questions on your Android phone. The optional watch controls request a capture with Up, ask with Select, and open recent history with Down. The phone holds the full records and text replies. Capture needs no provider key.\n\nUse the separate Signal Station Android app for source choices, permissions, local history and your own provider keys. Keep your watch paired in the Pebble app that already manages it. The Android app also works without a watch.\n\nLocation, weather, nearby map places, wireless readings, cellular context and supported health data are individually optional. External lookups have their own review before sending. There is no ambient audio or video collection.\n\nThis is a development preview. Watch installation remains on hold while an earlier watch-settings reset is investigated. Physical-watch exchange has not been validated.\n\nBy Luke Steuber.",
-  "releaseNotes": "Messaging-only preview for the separate Signal Station Android app. Up captures selected readings, Select asks, and Down opens recent history through the existing Pebble app connection. Setup and help now refer to the phone app. No bundled phone JavaScript, watch pairing or firmware controls. Installation remains on hold while the earlier watch-settings reset is investigated; physical-watch exchange has not been validated.",
+  "desiredReleaseStatus": "Published",
+  "description": "Chat from your wrist with the language model you choose. Press the middle right button to dictate, Up to capture selected readings, and Down for recent history. The phone keeps full conversations and observations.\n\nRequires the separate Signal Station Android app alongside your usual Pebble app. Add your own provider key for chat; captures need no key. Dictation depends on watch support. Still in testing.\n\nBy Luke Steuber.",
+  "releaseNotes": "Clear side-button labels for Capture, Ask and History, plus watch motion and health-history collection. The backlight stays on while the app is visible. Requires the separate Signal Station Android app; still in testing.",
   "sourceUrl": "https://dr.eamer.dev/downloads/apps/signal-station/#source",
   "targets": [
     "basalt",
@@ -17,6 +17,6 @@
     "flint",
     "gabbro"
   ],
-  "physicalValidation": "Not performed",
-  "dashboardState": "Verified Unlisted with Draft release 1.5.0. Existing 1.2.0 was already Published inside the unlisted app and was preserved."
+  "physicalValidation": "Prior Time 2 / Pixel 9a capture evidence; no new physical-device run during this Store publication.",
+  "dashboardState": "Verified Unlisted with Published release 1.6.4. Public share page and PBW route returned not found; Store installation remains unverified."
 }

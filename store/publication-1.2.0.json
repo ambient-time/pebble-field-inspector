@@ -1,0 +1,31 @@
+{
+  "title": "Signal Station",
+  "version": "1.2.0",
+  "appId": "37360ca4d9764881bd1d6f4d",
+  "dashboardUrl": "https://developer.repebble.com/dashboard/apps/37360ca4d9764881bd1d6f4d/edit",
+  "storeUrl": "https://apps.repebble.com/37360ca4d9764881bd1d6f4d",
+  "listingVisibility": "Unlisted",
+  "releaseStatus": "Draft",
+  "dashboardSaved": true,
+  "sourceCommit": "22e1f7799011e34f4aebaa37242742dbd3e39a15",
+  "pbwSHA256": "2584b4f46f2c26228ff711bfb497196e1803d9229b8c04bdac7eeb8be672c911",
+  "artifactVerification": "Frozen local PBW verified before upload; dashboard extracted version and six targets. No server download hash comparison claimed.",
+  "screenshots": {
+    "basalt": 0,
+    "chalk": 2,
+    "diorite": 2,
+    "emery": 2,
+    "flint": 0,
+    "gabbro": 0
+  },
+  "mediaEvidence": "Reopened saved panels: native home/help images at exact Emery, Chalk and Diorite dimensions; small80, large144 and companion144 icons loaded. No banner uploaded.",
+  "submissionIncident": "New-app Submit App immediately set listing and release Published without presenting draft controls. Release was immediately marked Draft and listing visibility disabled; both saved states were verified after returning to dashboard.",
+  "physicalValidation": "Not performed",
+  "verifiedAt": "2026-09-09T07:35:29.927846+00:00",
+  "companion": {
+    "name": "Signal Station",
+    "url": "https://dr.eamer.dev/downloads/apps/signal-station/",
+    "required": true
+  },
+  "visibilityCorrection": "On this refresh, listing visibility was checked despite the earlier receipt. It was disabled again and verified false after both saves; release1.2.0 Publish immediately was explicitly disabled before creation."
+}

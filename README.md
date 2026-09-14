@@ -80,8 +80,8 @@ Daily windows follow local midnights, including daylight-saving transitions.
 The watchapp retains UUID `e2fd86ec-dfb8-460c-afc1-ebe4d071657a` and builds for
 Basalt, Chalk, Diorite, Emery, Flint, and Gabbro. Microphone and health availability
 depend on the model, permissions, firmware, and companion. Round displays keep
-their text within an inset reading area. The screen uses system backlight behavior
-and stationary text; it does not play speech or keep the backlight forced on.
+their text within an inset reading area. The current 1.6.4 addon keeps the backlight on while the app is visible and
+restores automatic behavior when it loses focus or exits. It does not play speech.
 
 [Signal Station validation](docs/signal-station-validation.md) records the
 version 1.2.0 builds and protocol tests.
@@ -92,3 +92,13 @@ See [BUILD.md](BUILD.md) for reproducible checks. The old speech experiment and
 recovery artifacts remain preserved in [the historical handoff](docs/experiment-handoff.md).
 Its speaker-performance gates do not apply to this text-only successor. The old
 server source remains available for recovery. Signal Station does not call it.
+
+## Pebble Store release
+
+Version 1.6.4 is published in the existing unlisted Pebble listing as of September
+14, 2026, with fresh home/help screenshots for all six supported targets. The
+Store share page and package route still returned not found during verification,
+so installation through the Store is not yet confirmed. The
+[direct download](https://dr.eamer.dev/downloads/apps/signal-station/) remains
+available. See [the publication receipt](store/publication-1.6.4.json) for the
+exact artifact, saved Store state and verification limits.
