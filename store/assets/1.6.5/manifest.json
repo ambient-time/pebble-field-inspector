@@ -1,0 +1,386 @@
+{
+  "pbwSHA256": "d32693d2a4c207329c2404a2d640795fff9d7a0f588788adf2259961eacfe78f",
+  "sourceCommit": "b83a66c5e5cece9481149eb423948edfe3019b64",
+  "screenshots": "Native SDK emulator frames; reply readings are examples, not personal measurements.",
+  "previews": "Five-state native screenshot slideshows; not a recording of dictation or a provider request.",
+  "files": [
+    {
+      "file": "basalt_banner.png",
+      "sha256": "b390a3b4118d66bcfb22060e457c99687e397e61ef0f5657c6a6baaa9a353e68",
+      "dimensions": [
+        720,
+        320
+      ],
+      "frames": 1
+    },
+    {
+      "file": "basalt_bottom.png",
+      "sha256": "30bd48f7250d015d69a2d92600c81915a0e566bcb7d135b4f32d3f299b83b9a3",
+      "dimensions": [
+        144,
+        168
+      ],
+      "frames": 1
+    },
+    {
+      "file": "basalt_code.png",
+      "sha256": "c747dfb62c13f48bc72a4f48f4ad3e8090373f19ce3f3aee5f4453c12350bc9b",
+      "dimensions": [
+        144,
+        168
+      ],
+      "frames": 1
+    },
+    {
+      "file": "basalt_help.png",
+      "sha256": "b61f6a7e26b2ad79174ce9061c24b86f1d153b2d8e1d47a4d715137a27a02f6f",
+      "dimensions": [
+        144,
+        168
+      ],
+      "frames": 1
+    },
+    {
+      "file": "basalt_home.png",
+      "sha256": "79a183da2fdfd7d2791f49a2752fc2146003438aa377a4470d3983d3a6ca7c61",
+      "dimensions": [
+        144,
+        168
+      ],
+      "frames": 1
+    },
+    {
+      "file": "basalt_markdown.png",
+      "sha256": "33e4733b89dcff5885b8d72cfa6950e0d3075f9f65e5302b0f83e030981c2bdd",
+      "dimensions": [
+        144,
+        168
+      ],
+      "frames": 1
+    },
+    {
+      "file": "basalt_preview.gif",
+      "sha256": "651bbc5c47b30fbbb2c35cf7878c028c0b355d246c852e19f16338e5c94c399b",
+      "dimensions": [
+        144,
+        168
+      ],
+      "frames": 4
+    },
+    {
+      "file": "chalk_banner.png",
+      "sha256": "4bf0bf65ab524f17fc225af6179c635b2825c4b682cb5344c058247e60d1918d",
+      "dimensions": [
+        720,
+        320
+      ],
+      "frames": 1
+    },
+    {
+      "file": "chalk_bottom.png",
+      "sha256": "5a984cbbe30d1855c6c8e78849148472cc6485177ce47392f72721310aafde1c",
+      "dimensions": [
+        180,
+        180
+      ],
+      "frames": 1
+    },
+    {
+      "file": "chalk_code.png",
+      "sha256": "275ad905d6a412a8405e85800f204666b69530781681e4514e98881fd4105904",
+      "dimensions": [
+        180,
+        180
+      ],
+      "frames": 1
+    },
+    {
+      "file": "chalk_help.png",
+      "sha256": "60566f72e5fb07178c2df991ef4a4c4cdb6e20e6797c5ca030e07ac17b9cfd38",
+      "dimensions": [
+        180,
+        180
+      ],
+      "frames": 1
+    },
+    {
+      "file": "chalk_home.png",
+      "sha256": "ab26eb9c8087a4050833a23af98430a8d1cc344cd47f4f83dc57f69f9b733e86",
+      "dimensions": [
+        180,
+        180
+      ],
+      "frames": 1
+    },
+    {
+      "file": "chalk_markdown.png",
+      "sha256": "c9b32012e094e2076a81570df8a68006a4054669ffa7cc74bf610ca1e929da51",
+      "dimensions": [
+        180,
+        180
+      ],
+      "frames": 1
+    },
+    {
+      "file": "chalk_preview.gif",
+      "sha256": "d474c7fbd2cbba72fda35b683a972f497b865cab7601d1ff76d3701cde2316be",
+      "dimensions": [
+        180,
+        180
+      ],
+      "frames": 4
+    },
+    {
+      "file": "diorite_banner.png",
+      "sha256": "cdeeaf00f9bf15ca679b21d2db4ed1cbc6037b8d61fd01af4791740770899d44",
+      "dimensions": [
+        720,
+        320
+      ],
+      "frames": 1
+    },
+    {
+      "file": "diorite_bottom.png",
+      "sha256": "a7ee555c198cd71f51e22cb7a10407f78c0b8597d3437c2e942cb173d634511d",
+      "dimensions": [
+        144,
+        168
+      ],
+      "frames": 1
+    },
+    {
+      "file": "diorite_code.png",
+      "sha256": "1c54bc4268b13243ab856f514eb9c3ff3c62564c18e80c46fcabd05446e44456",
+      "dimensions": [
+        144,
+        168
+      ],
+      "frames": 1
+    },
+    {
+      "file": "diorite_help.png",
+      "sha256": "d05d6764796e9f842aa641ad88892003b00961239372b42738a69d14c2167715",
+      "dimensions": [
+        144,
+        168
+      ],
+      "frames": 1
+    },
+    {
+      "file": "diorite_home.png",
+      "sha256": "35141fffe2626ffcef7a63e0e03baf0d7a52a7a1978ec47b532f813dd4a2ef8f",
+      "dimensions": [
+        144,
+        168
+      ],
+      "frames": 1
+    },
+    {
+      "file": "diorite_markdown.png",
+      "sha256": "5346349f46ff35061b87684f19940086ed592061bb99cb2898aeb735178ca584",
+      "dimensions": [
+        144,
+        168
+      ],
+      "frames": 1
+    },
+    {
+      "file": "diorite_preview.gif",
+      "sha256": "02b812db5ea9d5cf1346aed9b2b2d8dbf4fe8523e0a2584f338df6e171cd2de0",
+      "dimensions": [
+        144,
+        168
+      ],
+      "frames": 4
+    },
+    {
+      "file": "emery_banner.png",
+      "sha256": "5e9a2076f6c5093e9aed0b6b57d5d1da71135c313c0cb337427893c0b82cffb5",
+      "dimensions": [
+        720,
+        320
+      ],
+      "frames": 1
+    },
+    {
+      "file": "emery_bottom.png",
+      "sha256": "fa2ffabdc98119dbaff014640902b941bf06d3a832ab0f2df6046457a60654b5",
+      "dimensions": [
+        200,
+        228
+      ],
+      "frames": 1
+    },
+    {
+      "file": "emery_code.png",
+      "sha256": "7db667b618f07102d33d5b0a2cadf8ca1b067a66271ae21f4c0291f65a012c81",
+      "dimensions": [
+        200,
+        228
+      ],
+      "frames": 1
+    },
+    {
+      "file": "emery_help.png",
+      "sha256": "0f9d303a4446afafdfefd0f282183bb8322d166a0e3ee69e1ca5b64c8a99dfec",
+      "dimensions": [
+        200,
+        228
+      ],
+      "frames": 1
+    },
+    {
+      "file": "emery_home.png",
+      "sha256": "de118d566dc0e4aff271e836fb7f0f5cb99c2aab88ad7a445e30117bd9d7f309",
+      "dimensions": [
+        200,
+        228
+      ],
+      "frames": 1
+    },
+    {
+      "file": "emery_markdown.png",
+      "sha256": "9eff16b2295badcdde935b5613854e617b223d6601fe6731f285ac6c03956126",
+      "dimensions": [
+        200,
+        228
+      ],
+      "frames": 1
+    },
+    {
+      "file": "emery_preview.gif",
+      "sha256": "6601645c6a55727c0f34f062941756a17233b8979e18b20f28af2dfc7063a5eb",
+      "dimensions": [
+        200,
+        228
+      ],
+      "frames": 5
+    },
+    {
+      "file": "flint_banner.png",
+      "sha256": "cdeeaf00f9bf15ca679b21d2db4ed1cbc6037b8d61fd01af4791740770899d44",
+      "dimensions": [
+        720,
+        320
+      ],
+      "frames": 1
+    },
+    {
+      "file": "flint_bottom.png",
+      "sha256": "a7ee555c198cd71f51e22cb7a10407f78c0b8597d3437c2e942cb173d634511d",
+      "dimensions": [
+        144,
+        168
+      ],
+      "frames": 1
+    },
+    {
+      "file": "flint_code.png",
+      "sha256": "1c54bc4268b13243ab856f514eb9c3ff3c62564c18e80c46fcabd05446e44456",
+      "dimensions": [
+        144,
+        168
+      ],
+      "frames": 1
+    },
+    {
+      "file": "flint_help.png",
+      "sha256": "d05d6764796e9f842aa641ad88892003b00961239372b42738a69d14c2167715",
+      "dimensions": [
+        144,
+        168
+      ],
+      "frames": 1
+    },
+    {
+      "file": "flint_home.png",
+      "sha256": "35141fffe2626ffcef7a63e0e03baf0d7a52a7a1978ec47b532f813dd4a2ef8f",
+      "dimensions": [
+        144,
+        168
+      ],
+      "frames": 1
+    },
+    {
+      "file": "flint_markdown.png",
+      "sha256": "5346349f46ff35061b87684f19940086ed592061bb99cb2898aeb735178ca584",
+      "dimensions": [
+        144,
+        168
+      ],
+      "frames": 1
+    },
+    {
+      "file": "flint_preview.gif",
+      "sha256": "02b812db5ea9d5cf1346aed9b2b2d8dbf4fe8523e0a2584f338df6e171cd2de0",
+      "dimensions": [
+        144,
+        168
+      ],
+      "frames": 5
+    },
+    {
+      "file": "gabbro_banner.png",
+      "sha256": "6347469f78c1c01562e5810dcb0b8052772a60121396b304497c7f028510ea8e",
+      "dimensions": [
+        720,
+        320
+      ],
+      "frames": 1
+    },
+    {
+      "file": "gabbro_bottom.png",
+      "sha256": "bbfab9a43663a2a40f71d9ded4c5d58452190d5bb08d0447640b3b19f9220fec",
+      "dimensions": [
+        260,
+        260
+      ],
+      "frames": 1
+    },
+    {
+      "file": "gabbro_code.png",
+      "sha256": "12519f7d724bb47a941919428d064c4793ca8154669585fc28fe6e38faf2afb2",
+      "dimensions": [
+        260,
+        260
+      ],
+      "frames": 1
+    },
+    {
+      "file": "gabbro_help.png",
+      "sha256": "a72de6752cd6a84b3dc49c69bbbfaa73e15d215f7229313a5f625b5de634ee40",
+      "dimensions": [
+        260,
+        260
+      ],
+      "frames": 1
+    },
+    {
+      "file": "gabbro_home.png",
+      "sha256": "84dd4407590a0277aa81ce5ac555d9830b5779adf4f2a171da927e5db6e4924c",
+      "dimensions": [
+        260,
+        260
+      ],
+      "frames": 1
+    },
+    {
+      "file": "gabbro_markdown.png",
+      "sha256": "240a00ba4af66f570a2d2017349a6952dd0c7d30e3900acd19f474f361682a43",
+      "dimensions": [
+        260,
+        260
+      ],
+      "frames": 1
+    },
+    {
+      "file": "gabbro_preview.gif",
+      "sha256": "40bb7bc5b68663738785a497b7434ece0c98938ab493bb657ab3b2aa4a87d68a",
+      "dimensions": [
+        260,
+        260
+      ],
+      "frames": 5
+    }
+  ]
+}
