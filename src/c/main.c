@@ -177,6 +177,20 @@ static void minute_history(void) {
   if (!(mask & HealthServiceAccessibilityMaskNoPermission)) {
     HealthMinuteData records[SIGNAL_HISTORY_MINUTES]={0};
     count=health_service_get_minute_history(records,SIGNAL_HISTORY_MINUTES,&start,&end);
+    // Some firmware shifts start to its first available record without reducing
+    // the requested record count. Preserve only completed minutes inside the
+    // requested interval; validate the SDK's count and span before indexing it.
+    if (count && count<=SIGNAL_HISTORY_MINUTES && start>=requested_start &&
+        start%60==0 && (int64_t)end-start==(int64_t)count*60 && end>requested_end) {
+      uint32_t retained=start<requested_end ? (uint32_t)(requested_end-start)/60 : 0;
+      static char clipping[240];
+      snprintf(clipping,sizeof clipping,
+        "{\"reason\":\"history_window_clipped\",\"sdk_returned_minutes\":\"%lu\","
+        "\"sdk_window_start_s\":\"%ld\",\"sdk_window_end_s\":\"%ld\","
+        "\"excluded_after_requested_minutes\":\"%lu\"}",
+        (unsigned long)count,(long)start,(long)end,(unsigned long)(count-retained));
+      fields=clipping; count=retained; end=requested_end;
+    }
     if (!signal_history_bounds(count,(int64_t)start*1000,(int64_t)end*1000,(int64_t)requested_start*1000,(int64_t)requested_end*1000)) {
       count=0; fields="{\"reason\":\"invalid_history_window\"}";
     }

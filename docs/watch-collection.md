@@ -7,9 +7,11 @@ By Luke Steuber. September 13, 2026.
 This increment adds a selected, bounded history source and improves the existing
 five-second motion measurement. It uses public Pebble APIs and the existing
 AppMessage path. Source baseline: watch `8872957`, companion `003bd5a4`.
-Implementation and host validation are complete; physical validation is open. No owner-watch
-installation, pairing change, firmware flash or public release is part of this
-increment.
+Implementation and host validation are complete; physical validation is open.
+The initial increment performed no physical installation. Luke subsequently
+requested a trial on the Pixel 9a; the connected Time 2 is the primary target,
+with the 2 SE retained for compatibility. No firmware flash or public release is
+part of the trial.
 
 ## Implemented behavior
 
@@ -45,7 +47,12 @@ or compass heading. VMC is a movement count, not an activity diagnosis.
 
 Request end is the start of the current UTC minute; start is 900 seconds earlier.
 Nonempty results use the SDK's actual returned start/end (exclusive end), with
-exactly one row per returned minute. A zero return has no measured window because
+exactly one row per retained minute. If the SDK shifts its start and returns a
+consistent batch extending beyond the requested end, exclude that tail before
+serialization. The effective window contains only requested completed minutes;
+`fields` records the original SDK count, start/end in seconds, and the excluded
+minute count as strings. Reject malformed counts, spans, alignment and starts
+before the requested interval. A zero return has no measured window because
 the SDK declares its output times meaningless. Nonempty, entirely invalid results
 retain the returned window and null rows with unavailable status and no `measuredAt`.
 For valid history, `measuredAt` identifies the returned window's exclusive end.
@@ -139,4 +146,22 @@ Sources: [HealthService](https://developer.repebble.com/docs/c/Foundation/Event_
 Physical acceptance must establish selected-source behavior, actual minute
 coverage, missing versus zero readings, stationary/moving differentiation,
 cancel/disconnect cleanup and accessible Back/Stop behavior on a named watch.
-Do not reinstall the recovered owner watch to obtain that evidence.
+Use only the watch selected for the current trial. The earlier owner-watch
+restriction remains historical context; Luke's September 13 trial authorizes the
+connected Time 2, without a reset, unpair, or firmware flash.
+
+## September 13 trial correction
+
+Diorite QEMU 4.3.0 exposed an SDK boundary behavior that the initial synthetic
+fixtures did not cover: a request ending at 04:57 UTC returned 11 records spanning
+04:47–04:58 UTC. A local diagnostic build exposed the count and bounds without
+changing the time-window validator. The original 1.6.0 candidate correctly
+rejected the batch, but lost ten usable completed minutes with it.
+
+The collector now validates the SDK batch shape and removes only records after
+the requested exclusive end. The observed case retains ten completed minutes;
+an entirely later batch retains none and has no measured window. Regression tests
+execute the actual C collector for those cases and malformed windows. All watch
+tests and six target builds pass; the largest synthetic snapshot is now 948 bytes.
+The companion's dated trial receipt records package identities and the subsequent
+emulator and physical results separately.

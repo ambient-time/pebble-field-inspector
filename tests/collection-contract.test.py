@@ -81,6 +81,10 @@ static uint32_t health_service_get_minute_history(HealthMinuteData *records, uin
   if (!strcmp(scenario,"invalid_count")) return 16; // Never write beyond the supplied capacity.
   if (!strcmp(scenario,"before_requested")) { *start-=60; *end-=60; return 15; }
   if (!strcmp(scenario,"after_requested")) { *start+=60; *end+=60; return 15; }
+  // Observed on Diorite QEMU: the SDK shifts to its first available minute but
+  // returns an unfinished current minute beyond the requested exclusive end.
+  if (!strcmp(scenario,"qemu_tail")) { *start+=5*60; *end+=60; return 11; }
+  if (!strcmp(scenario,"future_only")) { *start=*end; *end+=120; return 2; }
   if (!strcmp(scenario,"unaligned")) { *start+=1; *end+=1; return 15; }
   if (!strcmp(scenario,"wrong_span")) { *end=*start+120; return 3; }
   if (!strcmp(scenario,"partial") || !strcmp(scenario,"all_invalid")) {
@@ -115,7 +119,7 @@ static void reset(const char *name, const char *enabled_keys) {
 }
 int main(void) {
   const char *cases[]={"complete","partial","all_invalid","zero","denied","invalid_count",
-    "before_requested","after_requested","unaligned","wrong_span","worst_unknowns","hour_boundary","day_boundary"};
+    "before_requested","after_requested","qemu_tail","future_only","unaligned","wrong_span","worst_unknowns","hour_boundary","day_boundary"};
   for (unsigned i=0;i<sizeof cases/sizeof cases[0];i++) {
     reset(cases[i],"[\"watch.minute_history\"]");
     if (!strcmp(cases[i],"hour_boundary")) s_collected_at=1789347601;
@@ -198,7 +202,23 @@ def main():
     assert invalid["status"] == "unavailable" and "measuredAt" not in invalid
     assert invalid["windowEnd"] - invalid["windowStart"] == 180000
 
-    for name in ("zero", "denied", "invalid_count", "before_requested", "after_requested", "unaligned", "wrong_span"):
+    for name, retained, omitted in (("after_requested", 14, 1), ("qemu_tail", 10, 1), ("future_only", 0, 2)):
+        value = observation(cases, name)
+        assert value["value"]["returned_minutes"] == retained, name
+        assert len(value["value"]["minutes"]) == retained, name
+        assert value["fields"]["reason"] == "history_window_clipped", name
+        assert int(value["fields"]["excluded_after_requested_minutes"]) == omitted, name
+        assert int(value["fields"]["sdk_returned_minutes"]) == retained + omitted, name
+        assert int(value["fields"]["sdk_window_end_s"]) > cases[name]["requested_end"], name
+        if retained:
+            assert value["windowEnd"] == value["measuredAt"] == value["value"]["requested_end_ms"], name
+            assert value["windowEnd"] - value["windowStart"] == retained * 60000, name
+            assert value["status"] == "available", name
+        else:
+            assert not {"windowStart", "windowEnd", "measuredAt"}.intersection(value), name
+            assert value["status"] == "unavailable", name
+
+    for name in ("zero", "denied", "invalid_count", "before_requested", "unaligned", "wrong_span"):
         value = observation(cases, name)
         assert value["value"]["returned_minutes"] == value["value"]["valid_minutes"] == 0, name
         assert value["value"]["minutes"] == [], name
