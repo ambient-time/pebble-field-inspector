@@ -18,6 +18,13 @@ int main(void) {
   strcpy(out,"snake_case and `a_b * c` and \\*literal\\* and [unfinished](url");
   signal_markdown_inline(out);
   assert(!strcmp(out,"snake_case and a_b * c and *literal* and [unfinished](url"));
+  strcpy(out,"``a```b``"); signal_markdown_inline(out); assert(!strcmp(out,"a```b"));
+  reader=(SignalMarkdown){.next="~~~\n~~~example\n**literal**\n~~~\n| `a|b` |"};
+  assert(signal_markdown_next(&reader,out,sizeof out,&block));
+  assert(signal_markdown_next(&reader,out,sizeof out,&block) && block.code && !strcmp(out,"~~~example"));
+  assert(signal_markdown_next(&reader,out,sizeof out,&block) && block.code && !strcmp(out,"**literal**"));
+  assert(signal_markdown_next(&reader,out,sizeof out,&block) && !out[0]);
+  assert(signal_markdown_next(&reader,out,sizeof out,&block) && !strcmp(out,"| a|b |"));
   reader=(SignalMarkdown){.next="界😀\nlast"};
   assert(signal_markdown_next(&reader,out,5,&block) && !strcmp(out,"界"));
   assert(signal_markdown_next(&reader,out,sizeof out,&block) && !strcmp(out,"last"));

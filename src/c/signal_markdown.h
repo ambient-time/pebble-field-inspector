@@ -16,7 +16,7 @@ static inline void signal_markdown_inline(char *text) {
     if (*read=='`') {
       size_t n=1; while (read[n]=='`') n++;
       char *end=read+n;
-      while (*end && !(strncmp(end,read,n)==0 && end[n]!='`')) end++;
+      while (*end && !(end[-1]!='`' && strncmp(end,read,n)==0 && end[n]!='`')) end++;
       if (*end) { read+=n; while (read<end) *write++=*read++; read+=n; continue; }
     }
     if (*read=='[' || (*read=='!' && read[1]=='[')) {
@@ -54,7 +54,8 @@ static inline bool signal_markdown_next(SignalMarkdown *reader, char *out, size_
   size_t spaces=(size_t)(content-out), fence=0;
   if (spaces<=3 && (*content=='`' || *content=='~')) {
     while (content[fence]==*content) fence++;
-    if (fence>=3 && (!reader->fence || (reader->fence==*content && fence>=reader->fence_size))) {
+    const char *tail=content+fence; while (*tail==' ' || *tail=='\t') tail++;
+    if (fence>=3 && (!reader->fence || (reader->fence==*content && fence>=reader->fence_size && !*tail))) {
       if (reader->fence) { reader->fence=0; reader->fence_size=0; }
       else { reader->fence=*content; reader->fence_size=fence; }
       out[0]='\0'; return true;
@@ -80,7 +81,7 @@ static inline bool signal_markdown_next(SignalMarkdown *reader, char *out, size_
   }
   if (content!=out) memmove(out,content,strlen(content)+1);
   // Tables become compact cell rows; their alignment scaffolding is not prose.
-  if (strchr(out,'|')) {
+  if (strchr(out,'|') && !strchr(out,'`') && !strchr(out,'\\')) {
     bool divider=true; unsigned bars=0, dashes=0;
     for (char *p=out;*p;p++) {
       if (*p=='|') bars++;

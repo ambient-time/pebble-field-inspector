@@ -466,7 +466,8 @@ static int markdown_body(GContext *ctx,int width,int offset) {
     y+=height+(block.heading?6:3);
   }
   if (s_view==VIEW_READER) {
-    const char *note="Full reply and links on phone.";
+    size_t length=strlen(s_answer);
+    const char *note=length>=3 && !strcmp(s_answer+length-3,"…")?"Reply shortened. Full reply and links on phone.":"Full reply and links on phone.";
     GFont small=fonts_get_system_font(FONT_KEY_GOTHIC_14);
     y+=8;
     if (ctx) { graphics_context_set_text_color(ctx,GColorWhite); graphics_draw_text(ctx,note,small,GRect(0,y-offset,width,6000),GTextOverflowModeWordWrap,GTextAlignmentLeft,NULL); }
