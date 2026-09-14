@@ -2,6 +2,7 @@
 #include <pebble.h>
 #include "signal_math.h"
 #include "signal_history.h"
+#include "signal_markdown.h"
 #define TEXT_CAP 1024
 #define SNAPSHOT_CAP 1900
 #define PERSIST_REQUEST_ID 1
@@ -443,6 +444,36 @@ static void clicks(void *context) {
 }
 static GRect body_bounds(GRect b) { int inset=PBL_IF_ROUND_ELSE(b.size.w/7,7); return GRect(inset,46,b.size.w-2*inset,b.size.h-80); }
 static GFont font(void) { return fonts_get_system_font(layer_get_bounds(s_canvas).size.h>=200 ? FONT_KEY_GOTHIC_24_BOLD : FONT_KEY_GOTHIC_18_BOLD); }
+static int markdown_body(GContext *ctx,int width,int offset) {
+  SignalMarkdown reader={.next=s_view==VIEW_HISTORY?s_history:s_answer};
+  SignalMarkdownBlock block;
+  static char line[TEXT_CAP];
+  bool large=layer_get_bounds(s_canvas).size.h>=200;
+  int y=0;
+  while (signal_markdown_next(&reader,line,sizeof line,&block)) {
+    if (!line[0]) {
+      if (block.rule && ctx) { graphics_context_set_stroke_color(ctx,GColorWhite); graphics_draw_line(ctx,GPoint(0,y+4-offset),GPoint(width-1,y+4-offset)); }
+      y+=8; continue;
+    }
+    GFont face=fonts_get_system_font(block.heading?(large?FONT_KEY_GOTHIC_24_BOLD:FONT_KEY_GOTHIC_18_BOLD):block.code?FONT_KEY_GOTHIC_14:(large?FONT_KEY_GOTHIC_24:FONT_KEY_GOTHIC_18));
+    int inset=block.quote?8:block.code?4:block.indent;
+    int height=graphics_text_layout_get_content_size(line,face,GRect(0,0,width-inset,6000),GTextOverflowModeWordWrap,GTextAlignmentLeft).h;
+    if (ctx) {
+      graphics_context_set_text_color(ctx,block.heading?PBL_IF_COLOR_ELSE(GColorCyan,GColorWhite):GColorWhite);
+      if (block.quote) { graphics_context_set_stroke_color(ctx,GColorWhite); graphics_draw_line(ctx,GPoint(1,y-offset+4),GPoint(1,y-offset+height)); }
+      graphics_draw_text(ctx,line,face,GRect(inset,y-offset,width-inset,6000),GTextOverflowModeWordWrap,GTextAlignmentLeft,NULL);
+    }
+    y+=height+(block.heading?6:3);
+  }
+  if (s_view==VIEW_READER) {
+    const char *note="Full reply and links on phone.";
+    GFont small=fonts_get_system_font(FONT_KEY_GOTHIC_14);
+    y+=8;
+    if (ctx) { graphics_context_set_text_color(ctx,GColorWhite); graphics_draw_text(ctx,note,small,GRect(0,y-offset,width,6000),GTextOverflowModeWordWrap,GTextAlignmentLeft,NULL); }
+    y+=graphics_text_layout_get_content_size(note,small,GRect(0,0,width,6000),GTextOverflowModeWordWrap,GTextAlignmentLeft).h;
+  }
+  return y;
+}
 static const char *body_text(void) {
   if (s_view==VIEW_HELP) return "Home shortcuts\nUp: Capture\nSelect: Ask\nDown: History\n\nCapture saves selected readings on your phone without a language model request.\nHistory reads recent saved records without a provider.\nAsk uses watch dictation when available. Otherwise, ask on your phone.\n\nUp/Down scroll reports and history. Back cancels or returns home. Hold Select here to ask.\n\nChoose sources, manage saved history, and configure providers on the phone.";
   if (s_view==VIEW_REVIEW) { snprintf(s_display,sizeof s_display,"%s\n\n%s\n\nSelect: Send\nBack: keep on phone",s_prompt,s_review_context); return s_display; }
@@ -482,6 +513,12 @@ static void draw_body(Layer *layer,GContext *ctx) {
       }
     }
     return;
+  }
+  if ((s_view==VIEW_READER && !s_status[0] && s_answer[0]) || s_view==VIEW_HISTORY) {
+    int height=markdown_body(NULL,b.size.w,0);
+    s_scroll_max=height>b.size.h?height-b.size.h:0;
+    if (s_scroll>s_scroll_max) s_scroll=s_scroll_max;
+    markdown_body(ctx,b.size.w,s_scroll); return;
   }
   GSize size=graphics_text_layout_get_content_size(body_text(),font(),GRect(0,0,b.size.w,6000),GTextOverflowModeWordWrap,GTextAlignmentLeft);
   s_scroll_max=size.h>b.size.h?size.h-b.size.h:0; if (s_scroll>s_scroll_max) s_scroll=s_scroll_max;

@@ -24,6 +24,12 @@ sources, providers, conversations, and saved history. Exiting the watch does not
 clear saved records. The watch receives up to 900 UTF-8 bytes; open the phone for
 complete records and older history.
 
+Replies use a compact Markdown reading layout: distinct headings, indented
+lists, quoted text and literal code blocks. Inline emphasis keeps its words
+without the formatting markers; links show their labels. Open the full reply
+on the phone for rich inline styling, tables and link destinations. The watch
+does not open links or load images.
+
 ## Chat from your wrist
 
 Ask a general question, then ask a follow-up in the same conversation. You do
@@ -45,9 +51,18 @@ source coverage.
 
 ## Phone setup
 
-Install Signal Station on Android, connect your watch through the usual Pebble
-app, and select
-your recognition and answer providers in its native settings. Provider keys stay
+1. Open the [download page](https://dr.eamer.dev/downloads/apps/signal-station/)
+   on your Android phone and tap **Download for Android**. Open the APK, allow
+   installation from your browser if Android asks, then tap **Install**.
+2. Open **Signal Station**. In **Ask → Set up answers**, choose a provider and
+   model and add your own provider key. You can start a phone conversation now.
+3. Keep your usual Pebble app installed and your watch paired there. Download
+   the Pebble package from the same page and open it with that Pebble app.
+4. In Signal Station, open **Settings → Connected devices → Watch connection**,
+   choose your Pebble host and watch, then tap **Check connection**. Open Signal
+   Station on the watch and press the middle right button to ask.
+
+Provider keys stay
 in protected phone storage. Watch settings never open a web form for keys.
 Stock recognition availability and app-specific OpenAI recognition are separate
 from the answer provider. A provider or permission failure stays visible rather
