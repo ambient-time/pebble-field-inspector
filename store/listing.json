@@ -1,13 +1,13 @@
 {
   "title": "Signal Station",
   "author": "Luke Steuber",
-  "version": "1.6.5",
+  "version": "1.6.6",
   "uuid": "e2fd86ec-dfb8-460c-afc1-ebe4d071657a",
   "type": "watchapp",
   "desiredVisibility": "Unlisted",
   "desiredReleaseStatus": "Published",
-  "description": "Chat from your wrist with the language model you choose. Ask a general question or follow up in the same conversation. Optionally bring selected readings and saved history into chat. The phone keeps full conversations; the watch shows a short, scrollable reply.\n\nInstall the separate Signal Station Android app first:\nhttps://dr.eamer.dev/downloads/apps/signal-station/\n\nOn your Android phone, tap Download for Android, open the APK, allow installation from your browser if asked, and tap Install. Open Signal Station, go to Ask, choose Set up answers, and add your provider, model and key. Provider usage charges apply. Capture and local History need no key.\n\nKeep your usual Pebble app installed and your watch paired there. In Signal Station on the phone, open Settings, Connected devices, Watch connection. Choose your Pebble app and watch, then tap Check connection.\n\nOpen Signal Station on the watch. The right-side buttons are Up for Capture, middle for Ask, and Down for History. Up/Down scroll replies; Back returns home. Dictation depends on watch support. Read full formatted responses and open links on the phone.\n\nStill in testing. By Luke Steuber.",
-  "releaseNotes": "Replies now use a compact Markdown layout with headings, lists, quotes and literal code. Shortened replies point to the full answer on Android. Updated Android installation and chat instructions. Still in testing.",
+  "description": "Chat from your wrist with the language model you choose. Ask a general question or follow up in the same conversation. Optionally bring selected readings and saved history into chat. The phone keeps full conversations; the watch shows a short, scrollable reply.\n\nInstall the separate Signal Station Android app first:\nhttps://dr.eamer.dev/downloads/apps/signal-station/\n\nOn your Android phone, tap Download for Android, open the APK, allow installation from your browser if asked, and tap Install. Open Signal Station, go to Ask, choose Set up answers, and add your provider, model and key. Provider usage charges apply. Capture and local History need no key.\n\nKeep your usual Pebble app installed and your watch paired there. In Signal Station on the phone, open Settings, Connected devices, Watch connection. Choose your Pebble app and watch, then tap Check connection.\n\nOpen Signal Station on the watch. The right-side buttons are Up for Capture, middle for Ask, and Down for History. Up/Down scroll replies; Back returns home. Dictation depends on watch support. Hold the middle button while reading a reply, then open Signal Station on your phone and tap Open full reply. Requires Android build 16 or later. Resume conversation is a separate choice. The backlight stays on throughout app use.\n\nStill in testing. By Luke Steuber.",
+  "releaseNotes": "Hold Select on a reply to prepare the exact full reply on Android. Requires Android build 16 or later. Backlight stays on during app use. Still in testing.",
   "sourceUrl": "https://dr.eamer.dev/downloads/apps/signal-station/#source",
   "targets": [
     "basalt",
@@ -18,5 +18,5 @@
     "gabbro"
   ],
   "physicalValidation": "Prior Time 2 / Pixel 9a capture evidence; no new physical-device run during this Store publication.",
-  "dashboardState": "Verified Unlisted with Published release1.6.5, five screenshots plus GIF and banner per target. Public Store routes still return not found."
+  "dashboardState": "Verified Unlisted with Published release 1.6.6 and refreshed screenshots/GIFs; public routes checked separately."
 }

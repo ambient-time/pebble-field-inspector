@@ -95,7 +95,7 @@ Daily windows follow local midnights, including daylight-saving transitions.
 The watchapp retains UUID `e2fd86ec-dfb8-460c-afc1-ebe4d071657a` and builds for
 Basalt, Chalk, Diorite, Emery, Flint, and Gabbro. Microphone and health availability
 depend on the model, permissions, firmware, and companion. Round displays keep
-their text within an inset reading area. The current 1.6.5 addon keeps the backlight on while the app is visible and
+their text within an inset reading area. The current 1.6.6 addon keeps the backlight on while the app is visible and
 restores automatic behavior when it loses focus or exits. It does not play speech.
 
 [Signal Station validation](docs/signal-station-validation.md) records the
@@ -110,10 +110,12 @@ server source remains available for recovery. Signal Station does not call it.
 
 ## Pebble Store release
 
-Version 1.6.5 is published in the existing unlisted Pebble listing as of September
+Version 1.6.6 is published in the existing unlisted Pebble listing as of September
 14, 2026, with five native screenshots, a preview GIF and a banner for each of the six supported targets. The
 Store share page and package route still returned not found during verification,
 so installation through the Store is not yet confirmed. The
 [direct download](https://dr.eamer.dev/downloads/apps/signal-station/) remains
-available. See [the publication receipt](store/publication-1.6.5.json) for the
+available. See [the publication receipt](store/publication-1.6.6.json) for the
 exact artifact, saved Store state and verification limits.
+
+Hold Select while reading a reply, then tap Open full reply in the Android app. Android build 16 or later is required; the exact saved reply opens without replacing a phone draft. Resume conversation remains a separate action.
