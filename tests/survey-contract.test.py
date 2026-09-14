@@ -51,7 +51,8 @@ typedef void *ClickRecognizerRef;
 enum { VIEW_MENU, VIEW_READER, VIEW_HELP, VIEW_WAIT, VIEW_DICTATION, VIEW_HISTORY, VIEW_REVIEW };
 static int s_view, s_scroll, s_scroll_max=200, requests, asks, cancels, exits;
 static bool s_connected, s_bridge_ready, s_ready_pending, s_phone_record;
-static char s_status[160], s_kind[16], s_prompt[401];
+static char s_status[160], s_kind[16], s_prompt[401], s_answer[1024], s_phone_hint[100];
+static unsigned s_answer_id, s_handoff_id;
 #define requested s_kind
 static unsigned s_request_id=10;
 static bool s_request_pending;
@@ -84,6 +85,11 @@ int main(void) {
   assert(requests==3 && !s_phone_record && s_request_id==77 && !s_prompt[0] && !strcmp(requested,"confirm-wake"));
   s_view=VIEW_REVIEW;back_click(NULL,NULL);assert(cancels==2 && s_view==VIEW_MENU);
   s_view=VIEW_REVIEW;s_connected=false;select_click(NULL,NULL);assert(requests==3 && cancels==3);
+  s_connected=s_bridge_ready=true;s_view=VIEW_READER;s_status[0]=0;
+  strcpy(s_answer,"Saved reply");s_answer_id=77;
+  select_long(NULL,NULL);assert(s_handoff_id==77 && requests==3 && asks==1);
+  select_click(NULL,NULL);assert(asks==2);
+  s_handoff_id=0;s_connected=false;select_long(NULL,NULL);assert(!s_handoff_id && strstr(s_phone_hint,"disconnected"));
   puts("PASS actual home shortcuts, provider-free local actions, contextual scrolling and Back");
 }
 '''
@@ -155,3 +161,15 @@ with tempfile.TemporaryDirectory() as tmp:
     binary=Path(tmp)/'capture'
     subprocess.run(['cc','-std=c99','-Wall','-Werror','-finstrument-functions','-I',str(root/'src/c'),str(c),'-o',str(binary)],check=True)
     subprocess.run([str(binary)],check=True)
+
+# The real focus callbacks retain illumination on return and release it on loss.
+focus = source[source.index('static void will_focus('):source.index('static void init(')]
+program = '#include <stdbool.h>\n#include <assert.h>\nstatic bool light; static void light_enable(bool on){light=on;}\n' + focus + '\nint main(void){did_focus(true);assert(light);will_focus(true);assert(light);will_focus(false);assert(!light);did_focus(false);assert(!light);did_focus(true);assert(light);}\n'
+with tempfile.TemporaryDirectory() as tmp:
+    c=Path(tmp)/'focus.c'; c.write_text(program)
+    binary=Path(tmp)/'focus'
+    subprocess.run(['cc','-std=c99','-Wall','-Werror',str(c),'-o',str(binary)],check=True)
+    subprocess.run([str(binary)],check=True)
+assert 'window_stack_push(s_window,true); light_enable(true)' in source
+assert 'app_focus_service_unsubscribe(); light_enable(false)' in source
+print('PASS backlight remains enabled during focus and releases on loss/exit')

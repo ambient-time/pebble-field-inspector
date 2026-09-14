@@ -192,4 +192,25 @@ test('native rejection is terminal and cannot retry the same confirmation',funct
   latest(h,'confirm-wake').done('Draft expired');h.client.handle({RequestId:97,RequestType:'confirm-wake'});
   assert.strictEqual(h.requests.length,1);assert.strictEqual(h.messages[1].StatusText,'Draft expired');assert(!latest(h,'status'));
 });
+
+
+test('phone handoff is exact, local and idempotent while pending',function(){
+  var h=setup();ready(h,71);var before=h.requests.length;
+  h.client.handle({RequestId:71,RequestType:'continue-phone'});
+  h.client.handle({RequestId:71,RequestType:'continue-phone'});
+  assert.strictEqual(h.requests.length,before+1);
+  assert.deepStrictEqual(latest(h,'continue-phone').body,{request_id:71});
+  latest(h,'continue-phone').done(null,{state:'ready'});
+  assert.strictEqual(h.messages[h.messages.length-1].Command,'phone-handoff');
+  assert(!latest(h,'cancel'));assert.strictEqual(h.requests.filter(r=>r.url.endsWith('/start')).length,1);
+});
+test('handoff rejects wrong IDs and history, ignores late callbacks',function(){
+  var h=setup();ready(h,72);
+  h.client.handle({RequestId:71,RequestType:'continue-phone'});assert(!latest(h,'continue-phone'));
+  h.client.handle({RequestId:72,RequestType:'continue-phone'});var pending=latest(h,'continue-phone');
+  ask(h,73);var count=h.messages.length;pending.done(null,{state:'ready'});assert.strictEqual(h.messages.length,count);
+  h=setup();h.client.handle({RequestId:74,RequestType:'history'});latest(h,'history').done(null,{text:'History'});
+  h.client.handle({RequestId:74,RequestType:'continue-phone'});assert(!latest(h,'continue-phone'));
+});
+
 console.log(count+' Signal Station protocol tests passed.');

@@ -15,7 +15,8 @@ static char s_enabled[900], s_snapshot[SNAPSHOT_CAP], s_kind[16];
 static bool s_configured, s_bridge_ready, s_confirm, s_connected, s_collecting, s_sampling, s_phone_record;
 static int s_scroll, s_scroll_max, s_stage;
 static uint32_t s_request_id, s_answer_id, s_cancel_id, s_ack_id;
-static uint32_t s_collection_id;
+static uint32_t s_collection_id, s_handoff_id;
+static char s_phone_hint[100];
 static bool s_request_pending, s_ready_pending, s_clear_pending, s_settings_pending, s_snapshot_pending;
 static bool s_outbox_busy, s_snapshot_complete;
 static int s_outbox_kind, s_retries;
@@ -75,7 +76,7 @@ static void flush(void *unused) {
   s_outbox_timer = NULL;
   if (s_outbox_busy) return;
   int kind = s_cancel_id ? 1 : s_ack_id ? 2 : s_clear_pending ? 3 : s_settings_pending ? 4 :
-    s_ready_pending ? 5 : s_request_pending ? 6 : s_snapshot_pending ? 7 : 0;
+    s_ready_pending ? 5 : s_request_pending ? 6 : s_snapshot_pending ? 7 : s_handoff_id ? 8 : 0;
   if (!kind) return;
   DictionaryIterator *iter;
   if (app_message_outbox_begin(&iter) != APP_MSG_OK) { retry_flush(); return; }
@@ -92,6 +93,7 @@ static void flush(void *unused) {
     dict_write_cstring(iter,MESSAGE_KEY_RequestType,"watch-data"); dict_write_uint32(iter,MESSAGE_KEY_RequestId,s_request_id);
     dict_write_cstring(iter,MESSAGE_KEY_Snapshot,s_snapshot); dict_write_uint8(iter,MESSAGE_KEY_Complete,s_snapshot_complete);
   }
+  if (kind == 8) { dict_write_cstring(iter,MESSAGE_KEY_RequestType,"continue-phone"); dict_write_uint32(iter,MESSAGE_KEY_RequestId,s_handoff_id); }
   if (app_message_outbox_send() == APP_MSG_OK) s_outbox_busy = true;
   else retry_flush();
 }
@@ -104,10 +106,12 @@ static void outbox_sent(DictionaryIterator *iter, void *context) {
   if (s_outbox_kind == 5) s_ready_pending=false;
   if (s_outbox_kind == 6 && s_outbox_id==s_request_id) s_request_pending=false;
   if (s_outbox_kind == 7 && s_outbox_id==s_request_id) { s_snapshot_pending=false; if (s_collecting) next_snapshot(); }
+  if (s_outbox_kind == 8) s_handoff_id=0;
   flush(NULL);
 }
 static void outbox_failed(DictionaryIterator *iter, AppMessageResult reason, void *context) {
   s_outbox_busy=false;
+  if (s_outbox_kind==8) { s_handoff_id=0; snprintf(s_phone_hint,sizeof s_phone_hint,"Phone unavailable. Hold Select to retry."); redraw(); flush(NULL); return; }
   if (s_outbox_kind>=6 && s_outbox_id!=s_request_id) { s_retries=0; flush(NULL); return; }
   if (++s_retries <= 3) { retry_flush(); return; }
   s_retries=0; s_request_pending=s_snapshot_pending=s_collecting=false;
@@ -331,6 +335,13 @@ static void inbox(DictionaryIterator *iter,void *context) {
   t=dict_find(iter,MESSAGE_KEY_Enabled); if (t && t->type==TUPLE_CSTRING) snprintf(s_enabled,sizeof s_enabled,"%s",t->value->cstring);
   t=dict_find(iter,MESSAGE_KEY_ConfirmTranscript); if (t) s_confirm=t->value->uint32!=0;
   Tuple *id=dict_find(iter,MESSAGE_KEY_RequestId),*command=dict_find(iter,MESSAGE_KEY_Command);
+  if (id && command && command->type==TUPLE_CSTRING && !strcmp(command->value->cstring,"phone-handoff")) {
+    Tuple *hint=dict_find(iter,MESSAGE_KEY_StatusText);
+    if (id->value->uint32==s_answer_id && s_view==VIEW_READER && hint && hint->type==TUPLE_CSTRING) {
+      signal_utf8_copy(s_phone_hint,sizeof s_phone_hint,hint->value->cstring); redraw();
+    }
+    return;
+  }
   if (id && command && command->type==TUPLE_CSTRING && !strcmp(command->value->cstring,"review")) {
     if (id->value->uint32==s_request_id) return; // A replay cannot restore a dismissed or confirmed draft.
     Tuple *prompt=dict_find(iter,MESSAGE_KEY_Prompt), *review_context=dict_find(iter,MESSAGE_KEY_ResponseText);
@@ -369,7 +380,7 @@ static void inbox(DictionaryIterator *iter,void *context) {
     if (s_answer_id==s_request_id) { s_ack_id=s_request_id; flush(NULL); return; }
     if (!busy() || s_view==VIEW_REVIEW) return;
     bool history=!strcmp(s_kind,"history");
-    signal_utf8_copy(history?s_history:s_answer,TEXT_CAP,text->value->cstring); s_answer_id=s_request_id;
+    signal_utf8_copy(history?s_history:s_answer,TEXT_CAP,text->value->cstring); s_answer_id=s_request_id; s_phone_hint[0]=0;
     s_view=history?VIEW_HISTORY:VIEW_READER; s_status[0]='\0'; s_scroll=0; clear_timeout(); stop_sampling(); s_collecting=s_snapshot_pending=false;
     s_ack_id=s_request_id; flush(NULL); redraw(); return;
   }
@@ -420,7 +431,11 @@ static void select_click(ClickRecognizerRef r,void *context) {
 static void select_long(ClickRecognizerRef r,void *context) {
   if (s_view==VIEW_REVIEW) return;
   if (s_view==VIEW_MENU) { s_view=VIEW_HELP; s_scroll=0; redraw(); }
-  else ask();
+  else if (s_view==VIEW_READER && !s_status[0] && s_answer[0] && s_answer_id) {
+    if (!s_connected || !s_bridge_ready) snprintf(s_phone_hint,sizeof s_phone_hint,"Phone disconnected. Reconnect, then hold Select.");
+    else { s_handoff_id=s_answer_id; snprintf(s_phone_hint,sizeof s_phone_hint,"Preparing on phone..."); flush(NULL); }
+    s_scroll=s_scroll_max; redraw();
+  } else ask();
 }
 static void up_click(ClickRecognizerRef r,void *context) {
   if (s_view==VIEW_MENU) local_action("capture");
@@ -467,8 +482,9 @@ static int markdown_body(GContext *ctx,int width,int offset) {
   }
   if (s_view==VIEW_READER) {
     size_t length=strlen(s_answer);
-    const char *note=length>=3 && !strcmp(s_answer+length-3,"…")?"Reply shortened. Full reply and links on phone.":"Full reply and links on phone.";
+    const char *note=length>=3 && !strcmp(s_answer+length-3,"…")?"Reply shortened. Hold Select: full reply on phone.":"Hold Select: full reply on phone.";
     GFont small=fonts_get_system_font(FONT_KEY_GOTHIC_14);
+    if (s_phone_hint[0]) note=s_phone_hint;
     y+=8;
     if (ctx) { graphics_context_set_text_color(ctx,GColorWhite); graphics_draw_text(ctx,note,small,GRect(0,y-offset,width,6000),GTextOverflowModeWordWrap,GTextAlignmentLeft,NULL); }
     y+=graphics_text_layout_get_content_size(note,small,GRect(0,0,width,6000),GTextOverflowModeWordWrap,GTextAlignmentLeft).h;
@@ -476,7 +492,7 @@ static int markdown_body(GContext *ctx,int width,int offset) {
   return y;
 }
 static const char *body_text(void) {
-  if (s_view==VIEW_HELP) return "Home shortcuts\nUp: Capture\nSelect: Ask\nDown: History\n\nCapture saves selected readings on your phone without a language model request.\nHistory reads recent saved records without a provider.\nAsk uses watch dictation when available. Otherwise, ask on your phone.\n\nUp/Down scroll reports and history. Back cancels or returns home. Hold Select here to ask.\n\nChoose sources, manage saved history, and configure providers on the phone.";
+  if (s_view==VIEW_HELP) return "Home shortcuts\nUp: Capture\nSelect: Ask\nDown: History\n\nCapture saves selected readings on your phone without a language model request.\nHistory reads recent saved records without a provider.\nAsk uses watch dictation when available. Otherwise, ask on your phone.\n\nUp/Down scroll reports and history. Hold Select on a reply to continue on phone; tap Select to ask again. Back cancels or returns home. Hold Select here to ask.\n\nChoose sources, manage saved history, and configure providers on the phone.";
   if (s_view==VIEW_REVIEW) { snprintf(s_display,sizeof s_display,"%s\n\n%s\n\nSelect: Send\nBack: keep on phone",s_prompt,s_review_context); return s_display; }
   if (s_view==VIEW_HISTORY) return s_history;
   if (s_view==VIEW_WAIT) { snprintf(s_display,sizeof s_display,"%s%s%s",s_prompt[0]?s_prompt:"",s_prompt[0]?"\n\n":"",s_status); return s_display; }
