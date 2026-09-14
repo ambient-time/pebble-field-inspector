@@ -170,3 +170,15 @@ execute the actual C collector for those cases and malformed windows. All watch
 tests and six target builds pass; the largest synthetic snapshot is now 948 bytes.
 The companion's dated trial receipt records package identities and the subsequent
 emulator and physical results separately.
+
+## Foreground backlight
+
+Signal Station keeps the backlight on while its screen is visible. The public
+Pebble `light_enable` API enables this without a firmware modification. Focus
+handlers return control to the watch before a notification covers the app and
+restore illumination when the app regains focus. Exiting also returns automatic
+backlight control. Keeping the app open with the light on uses more battery.
+
+All six target builds compile this behavior. Physical illumination and timeout
+behavior still require observation on the watch; installation and app-message
+acknowledgements alone do not establish that result.

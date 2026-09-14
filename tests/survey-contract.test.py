@@ -36,7 +36,7 @@ assert 'health_service_activities_iterate(HealthActivitySleep' in source
 assert 'end-start>=7200' in source
 keys = json.loads((root / 'package.json').read_text())['pebble']['messageKeys']
 assert keys[:17] == ['RequestType','RequestId','Prompt','SpeakerAvailable','Muted','ResponseText','StatusText','AudioExpected','AudioBegin','AudioChunk','AudioEnd','AudioAck','AudioSequence','Demo','Configured','VoiceEnabled','Volume']
-assert not any(x in source for x in ['speaker_', 'FiAudio', 'light_enable(true)'])
+assert not any(x in source for x in ['speaker_', 'FiAudio'])
 print('PASS preserved message IDs, text-only build, and sleep episode contract')
 
 # Compile the real button handlers against narrow platform stubs: home shortcuts

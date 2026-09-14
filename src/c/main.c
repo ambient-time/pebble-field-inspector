@@ -501,6 +501,8 @@ static void window_load(Window *window) {
   s_body=layer_create(body_bounds(b)); layer_set_update_proc(s_body,draw_body); layer_add_child(root,s_body);
 }
 static void window_unload(Window *window) { layer_destroy(s_body); s_body=NULL; layer_destroy(s_canvas); s_canvas=NULL; }
+static void will_focus(bool in_focus) { if (!in_focus) light_enable(false); }
+static void did_focus(bool in_focus) { if (in_focus) light_enable(true); }
 static void init(void) {
   s_request_id=persist_exists(PERSIST_REQUEST_ID)?(uint32_t)persist_read_int(PERSIST_REQUEST_ID):(uint32_t)time(NULL);
   s_window=window_create(); window_set_background_color(s_window,GColorBlack);
@@ -508,9 +510,11 @@ static void init(void) {
   app_message_register_inbox_received(inbox); app_message_register_inbox_dropped(inbox_dropped);
   app_message_register_outbox_sent(outbox_sent); app_message_register_outbox_failed(outbox_failed); app_message_open(2048,2048);
   s_connected=connection_service_peek_pebble_app_connection(); connection_service_subscribe((ConnectionHandlers){.pebble_app_connection_handler=connection_changed});
-  window_stack_push(s_window,true); s_ready_pending=true; flush(NULL);
+  app_focus_service_subscribe_handlers((AppFocusHandlers){.will_focus=will_focus,.did_focus=did_focus});
+  window_stack_push(s_window,true); light_enable(true); s_ready_pending=true; flush(NULL);
 }
 static void deinit(void) {
+  app_focus_service_unsubscribe(); light_enable(false);
   stop_sampling(); clear_timeout(); if (s_outbox_timer) app_timer_cancel(s_outbox_timer);
 #ifdef PBL_MICROPHONE
   if (s_dictation) dictation_session_destroy(s_dictation);
