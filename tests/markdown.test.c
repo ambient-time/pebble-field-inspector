@@ -25,6 +25,8 @@ int main(void) {
   assert(signal_markdown_next(&reader,out,sizeof out,&block) && block.code && !strcmp(out,"**literal**"));
   assert(signal_markdown_next(&reader,out,sizeof out,&block) && !out[0]);
   assert(signal_markdown_next(&reader,out,sizeof out,&block) && !strcmp(out,"| a|b |"));
+  reader=(SignalMarkdown){.next="    *literal*"};
+  assert(signal_markdown_next(&reader,out,sizeof out,&block) && block.code && !strcmp(out,"*literal*"));
   reader=(SignalMarkdown){.next="界😀\nlast"};
   assert(signal_markdown_next(&reader,out,5,&block) && !strcmp(out,"界"));
   assert(signal_markdown_next(&reader,out,sizeof out,&block) && !strcmp(out,"last"));

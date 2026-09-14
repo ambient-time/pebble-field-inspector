@@ -63,6 +63,7 @@ static inline bool signal_markdown_next(SignalMarkdown *reader, char *out, size_
   }
   block->code=reader->fence!=0;
   if (block->code) return true;
+  if (spaces>=4) { block->code=true; memmove(out,out+4,strlen(out+4)+1); return true; }
   if (spaces<=3 && *content=='#') {
     size_t hashes=0; while (content[hashes]=='#') hashes++;
     if (hashes<=6 && content[hashes]==' ') { block->heading=true; content+=hashes+1; }
