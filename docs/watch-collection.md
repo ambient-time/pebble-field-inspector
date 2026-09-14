@@ -138,9 +138,14 @@ Sources: [HealthService](https://developer.repebble.com/docs/c/Foundation/Event_
   measurement. The six build reports leave at least 39,240 bytes of heap.
   See the companion's collection descriptor
   and build receipt for the separately pinned no-PKJS development candidate.
-- **Planned:** physical acceptance and the firmware work above.
-- **Unavailable:** current owner-watch identity/firmware and physical sensor,
-  battery, Bluetooth and accessibility results. Historical emulator evidence is
+- **Physical trial:** Time 2 / Emery firmware 4.36.2 and Pixel 9a saved all 15
+  requested history minutes using addon 1.6.2. Motion reported unavailable:
+  zero accepted of 90 received, with 50 vibration and 40 timestamp exclusions.
+  The [trial receipt](https://github.com/ambient-time/pebble-inspector-companion/blob/codex/signal-station/docs/signal-station/collection-trial-2026-09-13.md)
+  separates candidate identities, physical evidence and emulator results.
+- **Planned:** remaining physical acceptance and the firmware work above.
+- **Unavailable:** clean motion differentiation, measured battery effects,
+  disconnect/cancel and accessibility results for this candidate. Historical emulator evidence is
   recorded separately in [addon preparation](signal-station-addon-preparation.md).
 
 Physical acceptance must establish selected-source behavior, actual minute
