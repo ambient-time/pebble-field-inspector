@@ -1,0 +1,81 @@
+{
+  "appId": "37360ca4d9764881bd1d6f4d",
+  "visible": true,
+  "descriptionPreserved": true,
+  "bannerSHA256": "bd2b0f823fffb62cc1769d35c2592d40ee4ca1ae567bfbf9c93a57d3f3711dd2",
+  "screenshots": "Retained native home, phone handoff and help. Removed synthetic markdown, code and animated test fixtures.",
+  "assets": [
+    {
+      "id": 35950,
+      "platform": "flint",
+      "description": null,
+      "screenshots": [
+        "/api/assets/screenshots/37360ca4d9764881bd1d6f4d/flint/79f71032-6b3d-4071-a515-6623d68d33f4.png",
+        "/api/assets/screenshots/37360ca4d9764881bd1d6f4d/flint/0a82a2f8-5d00-432f-9c5d-ca85aae7af7d.png",
+        "/api/assets/screenshots/37360ca4d9764881bd1d6f4d/flint/e038da34-7307-483f-9682-b648dfeeb870.png"
+      ],
+      "headers": [],
+      "banner": "/api/assets/banners/37360ca4d9764881bd1d6f4d/flint/ba8f2e81-948c-49ec-ac3c-48f2809f1147.png"
+    },
+    {
+      "id": 35951,
+      "platform": "gabbro",
+      "description": null,
+      "screenshots": [
+        "/api/assets/screenshots/37360ca4d9764881bd1d6f4d/gabbro/7acb440c-8a14-41a8-801e-146c7d06c972.png",
+        "/api/assets/screenshots/37360ca4d9764881bd1d6f4d/gabbro/106c2b59-5c0d-4b0c-adb7-f00f89b12609.png",
+        "/api/assets/screenshots/37360ca4d9764881bd1d6f4d/gabbro/f4b5a20b-ebe0-4879-9fe2-91662e0d04be.png"
+      ],
+      "headers": [],
+      "banner": "/api/assets/banners/37360ca4d9764881bd1d6f4d/gabbro/990e4c76-bd7c-42eb-8c1c-e7806a81495b.png"
+    },
+    {
+      "id": 34838,
+      "platform": "diorite",
+      "description": null,
+      "screenshots": [
+        "/api/assets/screenshots/37360ca4d9764881bd1d6f4d/diorite/8b108ac6-1c00-4bf0-a952-a993d0ef79ec.png",
+        "/api/assets/screenshots/37360ca4d9764881bd1d6f4d/diorite/cfcb5188-c916-4e2e-8bbd-5de990444c9a.png",
+        "/api/assets/screenshots/37360ca4d9764881bd1d6f4d/diorite/91cca724-703c-4e24-8efe-e6250291258d.png"
+      ],
+      "headers": [],
+      "banner": "/api/assets/banners/37360ca4d9764881bd1d6f4d/diorite/1d240f7a-651c-4db3-97c9-afd2d27f8166.png"
+    },
+    {
+      "id": 35193,
+      "platform": "basalt",
+      "description": null,
+      "screenshots": [
+        "/api/assets/screenshots/37360ca4d9764881bd1d6f4d/basalt/427b2d50-17df-4ee3-9829-6c09b8f89add.png",
+        "/api/assets/screenshots/37360ca4d9764881bd1d6f4d/basalt/9784f2e6-d770-4e62-b48c-1de6a13e8de1.png",
+        "/api/assets/screenshots/37360ca4d9764881bd1d6f4d/basalt/10530d05-1409-41b3-afd3-0123d15fee58.png"
+      ],
+      "headers": [],
+      "banner": "/api/assets/banners/37360ca4d9764881bd1d6f4d/basalt/f0b4b285-cd37-415a-a738-deb6b7317ceb.png"
+    },
+    {
+      "id": 34829,
+      "platform": "emery",
+      "description": "EXPERMENTAL\r\n\r\nThis is a signal / presence awareness system with a Pebble face serving as interface and capture tool.\r\n\r\nIt also offers chat from your wrist with the language model you choose, enriched by signal intelligence all around you and over time, whatever you choose. The phone keeps full conversations; the watch shows a short, scrollable reply.\r\n\r\nInstall the separate Signal Station Android app first:\r\nhttps://dr.eamer.dev/downloads/apps/signal-station/\r\n\r\nOn your Android phone, tap Download for Android, open the APK, allow installation from your browser if asked, and tap Install. Open Signal Station, go to Ask, choose Set up answers, and add your provider, model and key. Provider usage charges apply. Capture and local History need no key.\r\n\r\nKeep your usual Pebble app installed and your watch paired there. In Signal Station on the phone, open Settings, Connected devices, Watch connection. Choose your Pebble app and watch, then tap Check connection.\r\n\r\nOpen Signal Station on the watch. The right-side buttons are Up for Capture, middle for Ask, and Down for History. Up/Down scroll replies; Back returns home. Dictation depends on watch support. Hold the middle button while reading a reply, then open Signal Station on your phone and tap Open full reply. Requires Android build 16 or later. Resume conversation is a separate choice. The backlight stays on throughout app use.\r\n\r\nStill in testing. By Luke Steuber.",
+      "screenshots": [
+        "/api/assets/screenshots/37360ca4d9764881bd1d6f4d/emery/17310de0-97b0-43b4-8ea3-cdec59ef0671.png",
+        "/api/assets/screenshots/37360ca4d9764881bd1d6f4d/emery/fec8d7cf-3a82-469e-ba1d-c3b43cda6eed.png",
+        "/api/assets/screenshots/37360ca4d9764881bd1d6f4d/emery/ac4ce4fd-d45b-4819-ad16-51ff3cc89417.png"
+      ],
+      "headers": [],
+      "banner": "/api/assets/banners/37360ca4d9764881bd1d6f4d/emery/e3188e4e-ce51-4e02-a457-3522f15e5a26.png"
+    },
+    {
+      "id": 34828,
+      "platform": "chalk",
+      "description": "EXPERMENTAL\r\n\r\nThis is a signal / presence awareness system with a Pebble face serving as interface and capture tool.\r\n\r\nIt also offers chat from your wrist with the language model you choose, enriched by signal intelligence all around you and over time, whatever you choose. The phone keeps full conversations; the watch shows a short, scrollable reply.\r\n\r\nInstall the separate Signal Station Android app first:\r\nhttps://dr.eamer.dev/downloads/apps/signal-station/\r\n\r\nOn your Android phone, tap Download for Android, open the APK, allow installation from your browser if asked, and tap Install. Open Signal Station, go to Ask, choose Set up answers, and add your provider, model and key. Provider usage charges apply. Capture and local History need no key.\r\n\r\nKeep your usual Pebble app installed and your watch paired there. In Signal Station on the phone, open Settings, Connected devices, Watch connection. Choose your Pebble app and watch, then tap Check connection.\r\n\r\nOpen Signal Station on the watch. The right-side buttons are Up for Capture, middle for Ask, and Down for History. Up/Down scroll replies; Back returns home. Dictation depends on watch support. Hold the middle button while reading a reply, then open Signal Station on your phone and tap Open full reply. Requires Android build 16 or later. Resume conversation is a separate choice. The backlight stays on throughout app use.\r\n\r\nStill in testing. By Luke Steuber.",
+      "screenshots": [
+        "/api/assets/screenshots/37360ca4d9764881bd1d6f4d/chalk/296b064e-6ee0-4590-b598-1afaa36399a2.png",
+        "/api/assets/screenshots/37360ca4d9764881bd1d6f4d/chalk/73c24506-937c-4f40-a0ad-9846e80b08eb.png",
+        "/api/assets/screenshots/37360ca4d9764881bd1d6f4d/chalk/b941d18a-cc92-4e54-afb7-937ed01f7e8c.png"
+      ],
+      "headers": [],
+      "banner": "/api/assets/banners/37360ca4d9764881bd1d6f4d/chalk/7d9d2fcc-6464-41cf-8a25-fd331b133afd.png"
+    }
+  ]
+}
