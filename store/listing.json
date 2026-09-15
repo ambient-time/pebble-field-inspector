@@ -1,13 +1,13 @@
 {
   "title": "Signal Station",
   "author": "Luke Steuber",
-  "version": "1.6.6",
+  "version": "1.7.1",
   "uuid": "e2fd86ec-dfb8-460c-afc1-ebe4d071657a",
   "type": "watchapp",
-  "desiredVisibility": "Unlisted",
+  "desiredVisibility": "Listed",
   "desiredReleaseStatus": "Published",
-  "description": "Chat from your wrist with the language model you choose. Ask a general question or follow up in the same conversation. Optionally bring selected readings and saved history into chat. The phone keeps full conversations; the watch shows a short, scrollable reply.\n\nInstall the separate Signal Station Android app first:\nhttps://dr.eamer.dev/downloads/apps/signal-station/\n\nOn your Android phone, tap Download for Android, open the APK, allow installation from your browser if asked, and tap Install. Open Signal Station, go to Ask, choose Set up answers, and add your provider, model and key. Provider usage charges apply. Capture and local History need no key.\n\nKeep your usual Pebble app installed and your watch paired there. In Signal Station on the phone, open Settings, Connected devices, Watch connection. Choose your Pebble app and watch, then tap Check connection.\n\nOpen Signal Station on the watch. The right-side buttons are Up for Capture, middle for Ask, and Down for History. Up/Down scroll replies; Back returns home. Dictation depends on watch support. Hold the middle button while reading a reply, then open Signal Station on your phone and tap Open full reply. Requires Android build 16 or later. Resume conversation is a separate choice. The backlight stays on throughout app use.\n\nStill in testing. By Luke Steuber.",
-  "releaseNotes": "Hold Select on a reply to prepare the exact full reply on Android. Requires Android build 16 or later. Backlight stays on during app use. Still in testing.",
+  "description": "EXPERMENTAL\r\n\r\nThis is a signal / presence awareness system with a Pebble face serving as interface and capture tool.\r\n\r\nIt also offers chat from your wrist with the language model you choose, enriched by signal intelligence all around you and over time, whatever you choose. The phone keeps full conversations; the watch shows a short, scrollable reply.\r\n\r\nInstall the separate Signal Station Android app first:\r\nhttps://dr.eamer.dev/downloads/apps/signal-station/\r\n\r\nOn your Android phone, tap Download for Android, open the APK, allow installation from your browser if asked, and tap Install. Open Signal Station, go to Ask, choose Set up answers, and add your provider, model and key. Provider usage charges apply. Capture and local History need no key.\r\n\r\nKeep your usual Pebble app installed and your watch paired there. In Signal Station on the phone, open Settings, Connected devices, Watch connection. Choose your Pebble app and watch, then tap Check connection.\r\n\r\nOpen Signal Station on the watch. The right-side buttons are Up for Capture, middle for Ask, and Down for History. Up/Down scroll replies; Back returns home. Dictation depends on watch support. Hold the middle button while reading a reply, then open Signal Station on your phone and tap Open full reply. Requires Android build 16 or later. Resume conversation is a separate choice. The backlight stays on throughout app use.\r\n\r\nHold Down at home to open the Home favorites chosen on your phone. Connect Home Assistant, openHAB or Geepers in Android build 17 or later. Home access is optional; actions ask for confirmation unless you have allowed that exact action.\n\nStill in testing. By Luke Steuber.",
+  "releaseNotes": "Hold Down at home to open Home favorites chosen on your phone. Connect Home Assistant, openHAB or Geepers in Android build 17 or later. Review device actions on the watch, or hand off longer confirmations to the phone. Home access starts off; actions require confirmation unless you explicitly allow that exact action. Existing Capture, Ask, History and full-reply handoff remain. Development preview; household-device testing continues.",
   "sourceUrl": "https://dr.eamer.dev/downloads/apps/signal-station/#source",
   "targets": [
     "basalt",
@@ -17,6 +17,6 @@
     "flint",
     "gabbro"
   ],
-  "physicalValidation": "Prior Time 2 / Pixel 9a capture evidence; no new physical-device run during this Store publication.",
-  "dashboardState": "Verified Unlisted with Published release 1.6.6 and refreshed screenshots/GIFs; public routes checked separately."
+  "physicalValidation": "Build and emulator validation completed across all six targets. No new physical phone/watch installation during publication.",
+  "dashboardState": "Verified visible with Published release 1.7.1; existing screenshots and banners retained. Public PBW bytes match the release package."
 }
