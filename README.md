@@ -130,8 +130,9 @@ behavior you tested. For watch changes, name the target and distinguish emulator
 results from a physical-device run. Never include provider keys, personal
 captures or identifiable radio scans in an issue or patch.
 
-This repository is preparing for public source access. It still needs a root
-license and a final review of historical files. See [publication preparation](docs/open-source.md).
+My original code and documentation use the [MIT License](LICENSE). Bundled
+third-party software retains its own notices, including Pebble Clay. Historical
+files still need a final publication review; see [publication preparation](docs/open-source.md).
 
 Made by [Luke Steuber](https://lukesteuber.com). Questions:
 [luke@lukesteuber.com](mailto:luke@lukesteuber.com).

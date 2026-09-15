@@ -9,9 +9,9 @@ listing and removal of test-content screenshots.
 
 Before changing visibility:
 
-- Choose a root license for Luke Steuber's watch code. The repository currently
-  has none. Preserve the bundled Pebble Clay license and review older server
-  code and media before choosing the new license's scope.
+- MIT now covers Luke Steuber's original code and documentation. Preserve the
+  bundled Pebble Clay license and review older server dependencies and media
+  for separate rights before publication.
 - Review branches and tags for personal captures, identifiers and separately
   licensed assets. The initial credential scan found no matches in 45 commits;
   it does not establish privacy or asset clearance.
@@ -22,5 +22,5 @@ Before changing visibility:
 - Confirm the public name and placement with the portfolio survey, then change
   visibility explicitly.
 
-Review date: September 14, 2026. Licensing, history review and the branch handoff
+Review date: September 14, 2026. Third-party rights, history review and the branch handoff
 remain open. No history rewrite, visibility change or ownership change was made.
