@@ -585,7 +585,7 @@ static void clicks(void *context) {
   else window_single_repeating_click_subscribe(BUTTON_ID_DOWN,150,down_click);
   window_single_click_subscribe(BUTTON_ID_BACK,back_click);
 }
-static GRect body_bounds(GRect b) { int inset=PBL_IF_ROUND_ELSE(b.size.w/7,7); return GRect(inset,46,b.size.w-2*inset,b.size.h-80); }
+static GRect body_bounds(GRect b) { int inset=PBL_IF_ROUND_ELSE(b.size.w/7,7); return GRect(inset,46,b.size.w-2*inset,b.size.h-(s_view>=VIEW_HOME_LIST?94:80)); }
 static GFont font(void) { return fonts_get_system_font(layer_get_bounds(s_canvas).size.h>=200 ? FONT_KEY_GOTHIC_24_BOLD : FONT_KEY_GOTHIC_18_BOLD); }
 static int markdown_body(GContext *ctx,int width,int offset) {
   SignalMarkdown reader={.next=s_view==VIEW_HISTORY?s_history:s_answer};
@@ -697,9 +697,16 @@ static void draw(Layer *layer,GContext *ctx) {
   graphics_context_set_stroke_color(ctx,PBL_IF_COLOR_ELSE(GColorCyan,GColorWhite)); graphics_draw_line(ctx,GPoint(inset,s_view==VIEW_MENU?44:34),GPoint(b.size.w-inset,s_view==VIEW_MENU?44:34));
   graphics_context_set_text_color(ctx,GColorWhite);
   const char *footer=s_view==VIEW_HOME_REVIEW?"Select: Confirm | Back: cancel":s_view==VIEW_HOME_LIST?"Up/Down: choose | Select":s_view==VIEW_HOME_DETAIL?(s_home_intent.action[0]?"Select: review | Back: home":"Up/Down: read | Back: home"):s_view==VIEW_HOME_HANDOFF?"Select: phone | Back: home":s_view==VIEW_HOME_RESULT?"Select: favorites | Back: home":s_view==VIEW_REVIEW?"Select: Send | Back: keep":busy()?"Back: stop":s_view==VIEW_MENU?(s_connected?(s_bridge_ready?(s_home_available?"Hold DOWN: Home":"Hold SELECT: help"):"Open phone app"):"Phone disconnected"):"Up/Down: read";
-  graphics_draw_text(ctx,footer,fonts_get_system_font(FONT_KEY_GOTHIC_14),GRect(inset,b.size.h-32,b.size.w-2*inset,20),GTextOverflowModeTrailingEllipsis,GTextAlignmentCenter,NULL);
+  if (s_view>=VIEW_HOME_LIST) {
+    const char *primary=s_view==VIEW_HOME_REVIEW?"Select: confirm":s_view==VIEW_HOME_LIST?"Select: open":s_view==VIEW_HOME_DETAIL?(s_home_intent.action[0]?"Select: review":"Up/Down: read"):s_view==VIEW_HOME_HANDOFF?"Select: phone":"Select: favorites";
+    const char *secondary=s_view==VIEW_HOME_REVIEW?"Back: cancel":s_view==VIEW_HOME_LIST?"Up/Down: choose":"Back: home";
+    graphics_draw_text(ctx,primary,fonts_get_system_font(FONT_KEY_GOTHIC_14),GRect(inset,b.size.h-43,b.size.w-2*inset,18),GTextOverflowModeWordWrap,GTextAlignmentCenter,NULL);
+    graphics_draw_text(ctx,secondary,fonts_get_system_font(FONT_KEY_GOTHIC_14),GRect(inset,b.size.h-28,b.size.w-2*inset,18),GTextOverflowModeWordWrap,GTextAlignmentCenter,NULL);
+  } else {
+    graphics_draw_text(ctx,footer,fonts_get_system_font(FONT_KEY_GOTHIC_14),GRect(inset,b.size.h-32,b.size.w-2*inset,20),GTextOverflowModeTrailingEllipsis,GTextAlignmentCenter,NULL);
+  }
 }
-static void redraw(void) { if (s_window && s_menu_clicks!=(s_view==VIEW_MENU)) { s_menu_clicks=s_view==VIEW_MENU; window_set_click_config_provider(s_window,clicks); } if (s_canvas) layer_mark_dirty(s_canvas); if (s_body) layer_mark_dirty(s_body); }
+static void redraw(void) { if (s_window && s_menu_clicks!=(s_view==VIEW_MENU)) { s_menu_clicks=s_view==VIEW_MENU; window_set_click_config_provider(s_window,clicks); } if (s_canvas) layer_mark_dirty(s_canvas); if (s_body) { layer_set_frame(s_body,body_bounds(layer_get_bounds(s_canvas))); layer_mark_dirty(s_body); } }
 static void connection_changed(bool connected) {
   s_connected=connected; if (!connected) { s_bridge_ready=false; s_home_available=false; }
   if (!connected && busy()) cancel_turn("Phone connection lost. Reconnect to ask again.");
