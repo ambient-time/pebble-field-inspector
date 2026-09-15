@@ -1,5 +1,9 @@
 # Signal Station 1.2.0 validation
 
+Historical version record. For current Home release evidence, see
+[September 15: Pebble 1.7.1 / Android build 17](home-release-2026-09-15.md).
+
+
 By Luke Steuber. Host checks on September 9, 2026.
 
 - 25 native bridge protocol tests pass, including capture with no answer provider,

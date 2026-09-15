@@ -1,5 +1,9 @@
 # Field Inspector 1.0.1 verification
 
+Historical version record. For current Home release evidence, see
+[September 15: Pebble 1.7.1 / Android build 17](docs/home-release-2026-09-15.md).
+
+
 Recovery update checked September 5, 2026. The release is an interactive watchapp
 with UUID `e2fd86ec-dfb8-460c-afc1-ebe4d071657a`.
 

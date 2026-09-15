@@ -13,6 +13,20 @@ By Luke Steuber. Install the separate **Signal Station** Android app alongside
 your usual Pebble app. Signal Station owns chat, readings and local history;
 the Pebble app keeps the watch connected. The watch app is still in testing.
 
+## Home release — September 15, 2026
+
+Pebble **1.7.1** and Android build **17** (`0.5.0-home-dev`) are published on the
+[download page](https://dr.eamer.dev/downloads/apps/signal-station/); 1.7.1 is
+also [published in the Pebble Store](https://apps.repebble.com/37360ca4d9764881bd1d6f4d).
+Hold Down at home for [Home favorites](docs/watch-home.md) selected on the phone:
+readings, declared controls and scenes from Home Assistant, openHAB or Geepers.
+The phone owns credentials, exact-action permissions and dispatch. Home starts
+unconnected, with no standing action grants. Existing short-button actions remain.
+
+See [release evidence](docs/home-release-2026-09-15.md) for package identity and
+remaining physical acceptance. The [iOS/Garmin capability audit](https://github.com/ambient-time/pebble-inspector-companion/blob/codex/signal-station/docs/signal-station/platform-capabilities.md)
+describes future ports; it does not establish another working companion.
+
 ## On your wrist
 
 The home screen maps directly to the three right-hand buttons:
@@ -99,7 +113,7 @@ Daily windows follow local midnights, including daylight-saving transitions.
 The watchapp retains UUID `e2fd86ec-dfb8-460c-afc1-ebe4d071657a` and builds for
 Basalt, Chalk, Diorite, Emery, Flint, and Gabbro. Microphone and health availability
 depend on the model, permissions, firmware, and companion. Round displays keep
-their text within an inset reading area. The current 1.6.6 addon keeps the backlight on while the app is visible and
+their text within an inset reading area. The 1.7.1 addon retains the behavior introduced in 1.6.6: it keeps the backlight on while the app is visible and
 restores automatic behavior when it loses focus or exits. It does not play speech.
 
 [Signal Station validation](docs/signal-station-validation.md) records the
@@ -115,12 +129,13 @@ server source remains available for recovery. Signal Station does not call it.
 ## Pebble Store release
 
 The [Pebble Store listing](https://apps.repebble.com/37360ca4d9764881bd1d6f4d)
-is public and serves version 1.6.6. The watch app is still in testing. Each of
+is public and serves version 1.7.1, checked September 15. The watch app is still in testing. Each of
 the six targets has a banner and three screenshots showing the home screen,
 phone handoff and help. The
 [direct download](https://dr.eamer.dev/downloads/apps/signal-station/) remains
-available. The [release receipt](store/publication-1.6.6.json) records the
-original upload; the [media update](store/assets/signals-20260914/publication.json)
+available. The [Home release record](docs/home-release-2026-09-15.md) records
+1.7.1. The [earlier release receipt](store/publication-1.6.6.json) records the
+1.6.6 upload; the [media update](store/assets/signals-20260914/publication.json)
 records the later public listing and screenshot cleanup.
 
 Hold Select while reading a reply, then tap Open full reply in the Android app. Android build 16 or later is required; the exact saved reply opens without replacing a phone draft. Resume conversation remains a separate action.

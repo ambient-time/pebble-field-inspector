@@ -1,5 +1,9 @@
 # Home favorites on the watch
 
+Available in published Pebble 1.7.1 with Android build 17. See
+[release evidence](home-release-2026-09-15.md) for the six-target package,
+publication and remaining physical phone/watch acceptance.
+
 Hold Down on the home screen to open Home favorites selected on the phone.
 Up and Down move through up to four favorites per page and Previous/Next page
 rows. Select opens the full detail. If the phone offers an action, Select requests
