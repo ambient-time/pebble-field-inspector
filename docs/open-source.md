@@ -1,26 +1,17 @@
-# Preparing public source access
+# Public source access
 
-This repository remains private. The app and its downloadable source package
-already have public download paths.
+The [watch repository](https://github.com/ambient-time/pebble-field-inspector) is
+public. Its default branch is `codex/signal-station`, which contains the current
+app and documentation. Earlier branches remain available for historical work.
 
-The README now explains collection, chat, installation and current Store status.
-Historical receipts remain intact; the later media receipt records the public
-listing and removal of test-content screenshots.
+Luke Steuber's original code and documentation use MIT. Keep bundled third-party
+notices, including Pebble Clay's license, when redistributing their files.
 
-Before changing visibility:
+The [download page](https://dr.eamer.dev/downloads/apps/signal-station/) links to
+the watch and Android repositories, installers and source ZIPs for published
+builds. Repository HEAD can be newer than those installers. Use the recorded
+source commit and checksum when reproducing a released package.
 
-- MIT now covers Luke Steuber's original code and documentation. Preserve the
-  bundled Pebble Clay license and review older server dependencies and media
-  for separate rights before publication.
-- Review branches and tags for personal captures, identifiers and separately
-  licensed assets. The initial credential scan found no matches in 45 commits;
-  it does not establish privacy or asset clearance.
-- Bring the intended release branch to the GitHub landing page. GitHub defaults
-  to `main`; current work is on `codex/signal-station`.
-- Run the build guide from a fresh checkout and verify Android source instructions.
-  Package and emulator checks do not establish every physical-watch path.
-- Confirm the public name and placement with the portfolio survey, then change
-  visibility explicitly.
-
-Review date: September 14, 2026. Third-party rights, history review and the branch handoff
-remain open. No history rewrite, visibility change or ownership change was made.
+Source access does not change the watch app's testing status. Follow `BUILD.md`
+and record the target, package and device when reporting a result. Historical
+screenshots and emulator traces document their specific test runs.

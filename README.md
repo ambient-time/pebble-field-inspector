@@ -133,8 +133,8 @@ results from a physical-device run. Never include provider keys, personal
 captures or identifiable radio scans in an issue or patch.
 
 My original code and documentation use the [MIT License](LICENSE). Bundled
-third-party software retains its own notices, including Pebble Clay. Historical
-files still need a final publication review; see [publication preparation](docs/open-source.md).
+third-party software retains its own notices, including Pebble Clay.
+See [public source access](docs/open-source.md) for repository and release details.
 
 ## Around here
 
