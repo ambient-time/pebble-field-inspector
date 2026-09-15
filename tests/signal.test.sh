@@ -9,3 +9,7 @@ trap 'rm -rf "$SS_TMP"' EXIT
 "$SS_TMP/markdown-test"
 python3 "$SS_ROOT/tests/survey-contract.test.py"
 python3 "$SS_ROOT/tests/collection-contract.test.py"
+
+"${CC:-cc}" -std=c99 -Wall -Wextra -Werror -fsanitize=address,undefined -I "$SS_ROOT/src/c" "$SS_ROOT/tests/home.test.c" -o "$SS_TMP/home-test"
+"$SS_TMP/home-test"
+python3 "$SS_ROOT/tests/home-contract.test.py"

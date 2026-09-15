@@ -108,3 +108,19 @@ locally; it never calls `/delivered` or `/start`.
 Original launcher and store icons are generated with `python3 scripts/render-icons.py`
 using Pillow. The monochrome launcher resource is 25px; store images are 80px and
 144px. Rebuilding the watch alone does not require Pillow.
+
+## Home favorites protocol
+
+The standalone addon supports [Home favorites](docs/watch-home.md) when both
+watch and phone negotiate HomeVersion 1. Hold Down on the home screen to open
+phone-selected favorites. The existing tap shortcuts and Hold Select help remain.
+Phone credentials, the full device catalog and permission decisions stay on the
+phone. The phone runtime assets, including Home message handling, live in the
+Android companion repository; the historical PKJS runtime does not enable Home.
+
+`npm run test:client` includes sanitized C tests of the actual Home inbox and
+button handlers. In the Android companion, run
+`node scripts/test_signal_home_watch_protocol.js /absolute/path/to/watch/tests/client.test.js`
+to exercise both Home and the existing protocol regressions against its actual
+standalone runtime. These tests and six-target compilation do not prove physical
+watch interaction or successful device actions.

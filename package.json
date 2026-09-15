@@ -53,7 +53,16 @@
       "TextAck",
       "ConfirmTranscript",
       "ReducedMotion",
-      "BridgeReady"
+      "BridgeReady",
+      "HomeVersion",
+      "HomePage",
+      "HomePages",
+      "HomeFavorite",
+      "HomeIntent",
+      "HomeAction",
+      "HomeExpires",
+      "HomeItems",
+      "HomeMode"
     ],
     "resources": {
       "media": [

@@ -3,10 +3,11 @@
 #include "signal_math.h"
 #include "signal_history.h"
 #include "signal_markdown.h"
+#include "signal_home.h"
 #define TEXT_CAP 1024
 #define SNAPSHOT_CAP 1900
 #define PERSIST_REQUEST_ID 1
-typedef enum { VIEW_MENU, VIEW_READER, VIEW_HELP, VIEW_WAIT, VIEW_DICTATION, VIEW_HISTORY, VIEW_REVIEW } View;
+typedef enum { VIEW_MENU, VIEW_READER, VIEW_HELP, VIEW_WAIT, VIEW_DICTATION, VIEW_HISTORY, VIEW_REVIEW, VIEW_HOME_LIST, VIEW_HOME_DETAIL, VIEW_HOME_REVIEW, VIEW_HOME_RESULT, VIEW_HOME_HANDOFF } View;
 static Window *s_window;
 static Layer *s_canvas, *s_body;
 static View s_view;
@@ -17,6 +18,13 @@ static int s_scroll, s_scroll_max, s_stage;
 static uint32_t s_request_id, s_answer_id, s_cancel_id, s_ack_id;
 static uint32_t s_collection_id, s_handoff_id;
 static char s_phone_hint[100];
+static bool s_home_available;
+static SignalHomePage s_home_page;
+static SignalHomeIntent s_home_intent, s_home_wire, s_home_cancel;
+static uint32_t s_home_reply_id, s_home_cancel_id;
+static uint16_t s_home_requested_page;
+static int s_home_selected;
+static char s_home_text[SIGNAL_HOME_TEXT_CAP];
 static bool s_request_pending, s_ready_pending, s_clear_pending, s_settings_pending, s_snapshot_pending;
 static bool s_outbox_busy, s_snapshot_complete;
 static int s_outbox_kind, s_retries;
@@ -31,10 +39,15 @@ static DictationSession *s_dictation;
 #endif
 static const char *s_items[] = {"Capture", "Ask", "History"};
 static void redraw(void);
+static void clicks(void *context);
+static bool s_menu_clicks;
 static void flush(void *unused);
 static void next_snapshot(void);
 static void ask(void);
-static bool busy(void) { return s_view == VIEW_WAIT || s_view == VIEW_DICTATION || s_view == VIEW_REVIEW; }
+static bool busy(void) { return s_view == VIEW_WAIT || s_view == VIEW_DICTATION || s_view == VIEW_REVIEW || s_view == VIEW_HOME_REVIEW; }
+static bool home_view(void) { return s_view>=VIEW_HOME_LIST || (s_view==VIEW_WAIT && !strncmp(s_kind,"home-",5)); }
+static void home_cancel(void);
+static void home_request(const char *kind);
 static bool enabled(const char *key) {
   char quoted[64]; snprintf(quoted, sizeof quoted, "\"%s\"", key);
   return strstr(s_enabled, quoted) != NULL;
@@ -45,7 +58,8 @@ static void stop_sampling(void) {
 }
 static void clear_timeout(void) { if (s_timeout_timer) { app_timer_cancel(s_timeout_timer); s_timeout_timer = NULL; } }
 static void cancel_turn(const char *message) {
-  if (s_view == VIEW_WAIT || s_view == VIEW_REVIEW || s_collecting || (s_view == VIEW_DICTATION && s_phone_record)) s_cancel_id = s_request_id;
+  if (home_view()) home_cancel();
+  else if (s_view == VIEW_WAIT || s_view == VIEW_REVIEW || s_collecting || (s_view == VIEW_DICTATION && s_phone_record)) s_cancel_id = s_request_id;
   s_request_pending = s_snapshot_pending = s_collecting = false;
   s_phone_record=false;
   s_view = VIEW_READER;
@@ -71,11 +85,39 @@ static void request(const char *kind, const char *prompt) {
   s_request_pending = true; start_timeout(); flush(NULL); redraw();
 }
 static void retry_flush(void) { if (!s_outbox_timer) s_outbox_timer = app_timer_register(100, flush, NULL); }
+static void home_cancel(void) {
+  s_home_cancel_id=s_request_id; s_home_cancel=s_home_wire;
+  if (s_home_intent.intent[0]) s_home_cancel=s_home_intent;
+  s_home_intent.consumed=true;
+}
+static void home_request(const char *kind) {
+  if (!s_connected || !s_bridge_ready || !s_home_available) {
+    clear_timeout(); s_view=VIEW_HOME_RESULT; strcpy(s_home_text,"Open or update Signal Station on your phone to use Home favorites."); redraw(); return;
+  }
+  s_home_wire=s_home_intent;
+  next_request(); s_phone_record=false; s_view=VIEW_WAIT; s_scroll=0; s_prompt[0]=0;
+  snprintf(s_kind,sizeof s_kind,"%s",kind);
+  strcpy(s_status,"Contacting Home on the phone..."); s_request_pending=true;
+  start_timeout(); flush(NULL); redraw();
+}
+static void home_list(uint16_t page) {
+  memset(&s_home_intent,0,sizeof s_home_intent); s_home_requested_page=page; home_request("home-list");
+}
+static void home_expired(void *unused) {
+  s_timeout_timer=NULL; home_cancel(); s_view=VIEW_HOME_RESULT;
+  strcpy(s_home_text,"Review expired. Open the favorite again for a new review."); s_scroll=0; flush(NULL); redraw();
+}
+static void home_binding(DictionaryIterator *iter,const SignalHomeIntent *binding) {
+  dict_write_uint8(iter,MESSAGE_KEY_HomeVersion,SIGNAL_HOME_VERSION);
+  if (binding->favorite[0]) dict_write_cstring(iter,MESSAGE_KEY_HomeFavorite,binding->favorite);
+  if (binding->action[0]) dict_write_cstring(iter,MESSAGE_KEY_HomeAction,binding->action);
+  if (binding->intent[0]) dict_write_cstring(iter,MESSAGE_KEY_HomeIntent,binding->intent);
+}
 // One in-flight message. Cancel and text acknowledgement always take priority.
 static void flush(void *unused) {
   s_outbox_timer = NULL;
   if (s_outbox_busy) return;
-  int kind = s_cancel_id ? 1 : s_ack_id ? 2 : s_clear_pending ? 3 : s_settings_pending ? 4 :
+  int kind = s_cancel_id ? 1 : s_home_cancel_id ? 9 : s_ack_id ? 2 : s_clear_pending ? 3 : s_settings_pending ? 4 :
     s_ready_pending ? 5 : s_request_pending ? 6 : s_snapshot_pending ? 7 : s_handoff_id ? 8 : 0;
   if (!kind) return;
   DictionaryIterator *iter;
@@ -85,9 +127,12 @@ static void flush(void *unused) {
   if (kind == 1) { dict_write_cstring(iter,MESSAGE_KEY_RequestType,"cancel"); dict_write_uint32(iter,MESSAGE_KEY_RequestId,s_cancel_id); }
   if (kind == 2) { dict_write_uint32(iter,MESSAGE_KEY_RequestId,s_ack_id); dict_write_uint8(iter,MESSAGE_KEY_TextAck,1); }
   if (kind >= 3 && kind <= 5) dict_write_cstring(iter,MESSAGE_KEY_RequestType,kind==3 ? "clear" : kind==4 ? "settings" : "ready");
+  if (kind == 5) dict_write_uint8(iter,MESSAGE_KEY_HomeVersion,SIGNAL_HOME_VERSION);
+  if (kind == 9) { dict_write_cstring(iter,MESSAGE_KEY_RequestType,"home-cancel"); dict_write_uint32(iter,MESSAGE_KEY_RequestId,s_home_cancel_id); home_binding(iter,&s_home_cancel); }
   if (kind == 6) {
     dict_write_cstring(iter,MESSAGE_KEY_RequestType,s_kind); dict_write_uint32(iter,MESSAGE_KEY_RequestId,s_request_id);
     if (s_prompt[0]) dict_write_cstring(iter,MESSAGE_KEY_Prompt,s_prompt);
+    if (!strncmp(s_kind,"home-",5)) { home_binding(iter,&s_home_wire); if (!strcmp(s_kind,"home-list")) dict_write_uint16(iter,MESSAGE_KEY_HomePage,s_home_requested_page); }
   }
   if (kind == 7) {
     dict_write_cstring(iter,MESSAGE_KEY_RequestType,"watch-data"); dict_write_uint32(iter,MESSAGE_KEY_RequestId,s_request_id);
@@ -107,12 +152,13 @@ static void outbox_sent(DictionaryIterator *iter, void *context) {
   if (s_outbox_kind == 6 && s_outbox_id==s_request_id) s_request_pending=false;
   if (s_outbox_kind == 7 && s_outbox_id==s_request_id) { s_snapshot_pending=false; if (s_collecting) next_snapshot(); }
   if (s_outbox_kind == 8) s_handoff_id=0;
+  if (s_outbox_kind == 9) { Tuple *t=dict_find(iter,MESSAGE_KEY_RequestId); if (t && t->value->uint32==s_home_cancel_id) s_home_cancel_id=0; }
   flush(NULL);
 }
 static void outbox_failed(DictionaryIterator *iter, AppMessageResult reason, void *context) {
   s_outbox_busy=false;
   if (s_outbox_kind==8) { s_handoff_id=0; snprintf(s_phone_hint,sizeof s_phone_hint,"Phone unavailable. Hold Select to retry."); redraw(); flush(NULL); return; }
-  if (s_outbox_kind>=6 && s_outbox_id!=s_request_id) { s_retries=0; flush(NULL); return; }
+  if (s_outbox_kind>=6 && s_outbox_kind!=9 && s_outbox_id!=s_request_id) { s_retries=0; flush(NULL); return; }
   if (++s_retries <= 3) { retry_flush(); return; }
   s_retries=0; s_request_pending=s_snapshot_pending=s_collecting=false;
   // Keep cancellation/acknowledgement pending for reconnect, but do not spin.
@@ -329,12 +375,70 @@ static void collect(uint32_t id) {
   }
   snprintf(s_status,sizeof s_status,"Collecting selected watch readings..."); start_timeout(); next_snapshot(); redraw();
 }
+static const char *home_string(DictionaryIterator *iter,uint32_t key,size_t cap) {
+  Tuple *t=dict_find(iter,key);
+  return t && t->type==TUPLE_CSTRING && signal_home_string(t->value->cstring,t->length,cap)?t->value->cstring:NULL;
+}
+static bool home_uint(DictionaryIterator *iter,uint32_t key,uint32_t *value) {
+  Tuple *t=dict_find(iter,key);
+  if (!t || (t->type!=TUPLE_UINT && t->type!=TUPLE_INT) || (t->length!=1 && t->length!=2 && t->length!=4)) return false;
+  if (t->type==TUPLE_INT && (t->length==1?t->value->int8:t->length==2?t->value->int16:t->value->int32)<0) return false;
+  *value=t->length==1?t->value->uint8:t->length==2?t->value->uint16:t->value->uint32; return true;
+}
+static void home_receive(DictionaryIterator *iter,uint32_t id) {
+  if (id==s_home_reply_id) { s_ack_id=id; flush(NULL); return; }
+  if (id!=s_request_id || s_view!=VIEW_WAIT || strncmp(s_kind,"home-",5)) return;
+  uint32_t version;
+  const char *mode=home_string(iter,MESSAGE_KEY_HomeMode,16);
+  bool valid=home_uint(iter,MESSAGE_KEY_HomeVersion,&version) && version==SIGNAL_HOME_VERSION && mode;
+  if (valid && !strcmp(mode,"list")) {
+    uint32_t page,pages; Tuple *items=dict_find(iter,MESSAGE_KEY_HomeItems);
+    valid=!strcmp(s_kind,"home-list") && home_uint(iter,MESSAGE_KEY_HomePage,&page) && home_uint(iter,MESSAGE_KEY_HomePages,&pages) &&
+      page==s_home_requested_page && page<1000 && pages<=1000 && items && items->type==TUPLE_CSTRING &&
+      signal_home_page(&s_home_page,items->value->cstring,items->length,(uint16_t)page,(uint16_t)pages);
+    if (valid) { s_home_selected=0; s_view=VIEW_HOME_LIST; }
+  } else if (valid) {
+    const char *text=home_string(iter,MESSAGE_KEY_ResponseText,SIGNAL_HOME_TEXT_CAP);
+    const char *favorite=home_string(iter,MESSAGE_KEY_HomeFavorite,SIGNAL_HOME_ID_CAP);
+    const char *action=home_string(iter,MESSAGE_KEY_HomeAction,SIGNAL_HOME_ID_CAP);
+    valid=text && text[0] && favorite && !strcmp(favorite,s_home_wire.favorite);
+    if (valid && !strcmp(mode,"review")) {
+      const char *intent=home_string(iter,MESSAGE_KEY_HomeIntent,SIGNAL_HOME_ID_CAP); uint32_t expires;
+      valid=!strcmp(s_kind,"home-review") && action && !strcmp(action,s_home_wire.action) && intent &&
+        home_uint(iter,MESSAGE_KEY_HomeExpires,&expires) && signal_home_intent(&s_home_intent,favorite,action,intent,expires,(uint32_t)time(NULL));
+      if (valid) s_view=VIEW_HOME_REVIEW;
+    } else if (valid && !strcmp(mode,"detail")) {
+      valid=!strcmp(s_kind,"home-open") && (!action || signal_home_id(action));
+      if (valid) { memset(&s_home_intent,0,sizeof s_home_intent); strcpy(s_home_intent.favorite,favorite); if (action) strcpy(s_home_intent.action,action); s_view=VIEW_HOME_DETAIL; }
+    } else if (valid && (!strcmp(mode,"handoff") || !strcmp(mode,"result"))) {
+      s_home_intent.consumed=true; s_view=!strcmp(mode,"handoff")?VIEW_HOME_HANDOFF:VIEW_HOME_RESULT;
+    } else valid=false;
+    if (valid) strcpy(s_home_text,text);
+  }
+  if (!valid) {
+    home_cancel(); s_view=VIEW_HOME_RESULT;
+    strcpy(s_home_text,"Home message could not be reviewed safely. Continue on the phone.");
+  } else { s_home_reply_id=id; s_ack_id=id; }
+  s_request_pending=false; clear_timeout(); s_scroll=0;
+  if (valid && s_view==VIEW_HOME_REVIEW) {
+    uint32_t now=(uint32_t)time(NULL);
+    if (!signal_home_can_confirm(&s_home_intent,now)) { home_expired(NULL); return; }
+    s_timeout_timer=app_timer_register((s_home_intent.expires-now)*1000,home_expired,NULL);
+  }
+  flush(NULL); redraw();
+}
 static void inbox(DictionaryIterator *iter,void *context) {
+  uint32_t home_version;
+  Tuple *home_cap=dict_find(iter,MESSAGE_KEY_HomeVersion);
+  if (home_cap) s_home_available=home_uint(iter,MESSAGE_KEY_HomeVersion,&home_version) && home_version==SIGNAL_HOME_VERSION;
   Tuple *t=dict_find(iter,MESSAGE_KEY_BridgeReady); if (t) s_bridge_ready=t->value->uint32!=0;
   t=dict_find(iter,MESSAGE_KEY_Configured); if (t) s_configured=t->value->uint32!=0;
   t=dict_find(iter,MESSAGE_KEY_Enabled); if (t && t->type==TUPLE_CSTRING) snprintf(s_enabled,sizeof s_enabled,"%s",t->value->cstring);
   t=dict_find(iter,MESSAGE_KEY_ConfirmTranscript); if (t) s_confirm=t->value->uint32!=0;
   Tuple *id=dict_find(iter,MESSAGE_KEY_RequestId),*command=dict_find(iter,MESSAGE_KEY_Command);
+  if (command && command->type==TUPLE_CSTRING && !strcmp(command->value->cstring,"home")) {
+    uint32_t home_id; if (home_uint(iter,MESSAGE_KEY_RequestId,&home_id)) home_receive(iter,home_id); return;
+  }
   if (id && command && command->type==TUPLE_CSTRING && !strcmp(command->value->cstring,"phone-handoff")) {
     Tuple *hint=dict_find(iter,MESSAGE_KEY_StatusText);
     if (id->value->uint32==s_answer_id && s_view==VIEW_READER && hint && hint->type==TUPLE_CSTRING) {
@@ -375,6 +479,7 @@ static void inbox(DictionaryIterator *iter,void *context) {
     collect(id->value->uint32); return;
   }
   if (!id || id->value->uint32!=s_request_id) { redraw(); return; }
+  if (home_view()) return;
   Tuple *text=dict_find(iter,MESSAGE_KEY_ResponseText),*status=dict_find(iter,MESSAGE_KEY_StatusText);
   if (text && text->type==TUPLE_CSTRING && text->length<=901 && text->length>1) {
     if (s_answer_id==s_request_id) { s_ack_id=s_request_id; flush(NULL); return; }
@@ -422,6 +527,20 @@ static void local_action(const char *kind) {
   request(kind,NULL);
 }
 static void select_click(ClickRecognizerRef r,void *context) {
+  if (s_view==VIEW_HOME_LIST) {
+    if (s_home_selected<s_home_page.count) { memset(&s_home_intent,0,sizeof s_home_intent); strcpy(s_home_intent.favorite,s_home_page.items[s_home_selected].id); home_request("home-open"); }
+    else if (s_home_page.page && s_home_selected==s_home_page.count) home_list(s_home_page.page-1);
+    else if (s_home_page.page+1<s_home_page.pages) home_list(s_home_page.page+1);
+    return;
+  }
+  if (s_view==VIEW_HOME_DETAIL) { if (s_home_intent.action[0]) home_request("home-review"); return; }
+  if (s_view==VIEW_HOME_REVIEW) {
+    if (!signal_home_can_confirm(&s_home_intent,(uint32_t)time(NULL))) { clear_timeout(); home_expired(NULL); return; }
+    s_home_intent.consumed=true; home_request("home-confirm"); return;
+  }
+  if (s_view==VIEW_HOME_HANDOFF) { home_request("home-phone"); return; }
+  if (s_view==VIEW_HOME_RESULT) { home_list(s_home_page.page); return; }
+  if (s_view==VIEW_WAIT && !strncmp(s_kind,"home-",5)) return;
   if (s_view==VIEW_REVIEW) {
     if (!s_connected || !s_bridge_ready) { cancel_turn("Phone disconnected. Review the draft on your phone."); return; }
     // Retain the native ID and send no text; the phone owns the immutable draft.
@@ -429,7 +548,7 @@ static void select_click(ClickRecognizerRef r,void *context) {
   } else ask();
 }
 static void select_long(ClickRecognizerRef r,void *context) {
-  if (s_view==VIEW_REVIEW) return;
+  if (s_view==VIEW_REVIEW || home_view()) return;
   if (s_view==VIEW_MENU) { s_view=VIEW_HELP; s_scroll=0; redraw(); }
   else if (s_view==VIEW_READER && !s_status[0] && s_answer[0] && s_answer_id) {
     if (!s_connected || !s_bridge_ready) snprintf(s_phone_hint,sizeof s_phone_hint,"Phone disconnected. Reconnect, then hold Select.");
@@ -438,14 +557,22 @@ static void select_long(ClickRecognizerRef r,void *context) {
   } else ask();
 }
 static void up_click(ClickRecognizerRef r,void *context) {
-  if (s_view==VIEW_MENU) local_action("capture");
+  if (s_view==VIEW_HOME_LIST) { if (s_home_selected>0) s_home_selected--; }
+  else if (s_view==VIEW_MENU) local_action("capture");
   else { s_scroll-=36; if (s_scroll<0) s_scroll=0; } redraw();
 }
 static void down_click(ClickRecognizerRef r,void *context) {
-  if (s_view==VIEW_MENU) local_action("history");
+  if (s_view==VIEW_HOME_LIST) { int rows=s_home_page.count+(s_home_page.page>0)+(s_home_page.page+1<s_home_page.pages); if (s_home_selected+1<rows) s_home_selected++; }
+  else if (s_view==VIEW_MENU) local_action("history");
   else { s_scroll+=36; if (s_scroll>s_scroll_max) s_scroll=s_scroll_max; } redraw();
 }
+static void down_long(ClickRecognizerRef r,void *context) { if (s_view==VIEW_MENU) home_list(0); }
 static void back_click(ClickRecognizerRef r,void *context) {
+  if (home_view()) {
+    if (busy()) { home_cancel(); s_request_pending=false; clear_timeout(); flush(NULL); }
+    s_home_intent.consumed=true;
+    s_view=VIEW_MENU; s_scroll=0; redraw(); return;
+  }
   if (busy()) { cancel_turn(""); s_view=VIEW_MENU; s_scroll=0; redraw(); }
   else if (s_view!=VIEW_MENU) { s_view=VIEW_MENU; s_scroll=0; redraw(); }
   else window_stack_pop(true);
@@ -454,7 +581,8 @@ static void clicks(void *context) {
   window_single_click_subscribe(BUTTON_ID_SELECT,select_click);
   window_long_click_subscribe(BUTTON_ID_SELECT,650,select_long,NULL);
   window_single_repeating_click_subscribe(BUTTON_ID_UP,150,up_click);
-  window_single_repeating_click_subscribe(BUTTON_ID_DOWN,150,down_click);
+  if (s_view==VIEW_MENU) { window_single_click_subscribe(BUTTON_ID_DOWN,down_click); window_long_click_subscribe(BUTTON_ID_DOWN,650,down_long,NULL); }
+  else window_single_repeating_click_subscribe(BUTTON_ID_DOWN,150,down_click);
   window_single_click_subscribe(BUTTON_ID_BACK,back_click);
 }
 static GRect body_bounds(GRect b) { int inset=PBL_IF_ROUND_ELSE(b.size.w/7,7); return GRect(inset,46,b.size.w-2*inset,b.size.h-80); }
@@ -492,7 +620,9 @@ static int markdown_body(GContext *ctx,int width,int offset) {
   return y;
 }
 static const char *body_text(void) {
-  if (s_view==VIEW_HELP) return "Home shortcuts\nUp: Capture\nSelect: Ask\nDown: History\n\nCapture saves selected readings on your phone without a language model request.\nHistory reads recent saved records without a provider.\nAsk uses watch dictation when available. Otherwise, ask on your phone.\n\nUp/Down scroll reports and history. Hold Select on a reply to continue on phone; tap Select to ask again. Back cancels or returns home. Hold Select here to ask.\n\nChoose sources, manage saved history, and configure providers on the phone.";
+  if (s_view==VIEW_HOME_LIST) return "Choose Home favorites on your phone.";
+  if (s_view>=VIEW_HOME_DETAIL) return s_home_text;
+  if (s_view==VIEW_HELP) return "Home shortcuts\nUp: Capture\nSelect: Ask\nDown: History\nHold Down: Home favorites\n\nCapture saves selected readings on your phone without a language model request.\nHistory reads recent saved records without a provider.\nAsk uses watch dictation when available. Otherwise, ask on your phone.\n\nUp/Down scroll reports and history. Hold Select on a reply to continue on phone; tap Select to ask again. Back cancels or returns home. Hold Select here to ask.\n\nChoose sources, manage saved history, and configure providers on the phone.";
   if (s_view==VIEW_REVIEW) { snprintf(s_display,sizeof s_display,"%s\n\n%s\n\nSelect: Send\nBack: keep on phone",s_prompt,s_review_context); return s_display; }
   if (s_view==VIEW_HISTORY) return s_history;
   if (s_view==VIEW_WAIT) { snprintf(s_display,sizeof s_display,"%s%s%s",s_prompt[0]?s_prompt:"",s_prompt[0]?"\n\n":"",s_status); return s_display; }
@@ -502,6 +632,20 @@ static const char *body_text(void) {
 }
 static void draw_body(Layer *layer,GContext *ctx) {
   GRect b=layer_get_bounds(layer); graphics_context_set_text_color(ctx,GColorWhite);
+  if (s_view==VIEW_HOME_LIST) {
+    if (!s_home_page.count) { graphics_draw_text(ctx,"Choose Home favorites on your phone.",font(),b,GTextOverflowModeWordWrap,GTextAlignmentCenter,NULL); return; }
+    int rows=s_home_page.count+(s_home_page.page>0)+(s_home_page.page+1<s_home_page.pages);
+    int visible=b.size.h/32; if (visible<1) visible=1;
+    int first=s_home_selected>=visible?s_home_selected-visible+1:0;
+    for (int i=first;i<rows && i<first+visible;i++) {
+      const char *label=i<s_home_page.count?s_home_page.items[i].label:(s_home_page.page && i==s_home_page.count)?"Previous page":"Next page";
+      bool selected=i==s_home_selected; GRect row=GRect(0,(i-first)*32,b.size.w,32);
+      if (selected) { graphics_context_set_fill_color(ctx,GColorWhite); graphics_fill_rect(ctx,row,2,GCornersAll); }
+      graphics_context_set_text_color(ctx,selected?GColorBlack:GColorWhite);
+      graphics_draw_text(ctx,label,fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD),row,GTextOverflowModeTrailingEllipsis,GTextAlignmentLeft,NULL);
+    }
+    return;
+  }
   if (s_view==VIEW_MENU) {
     const char *keys[]={"UP","SELECT","DOWN"};
     const char *details[]={"Save readings","Speak a question","Saved records"};
@@ -545,19 +689,19 @@ static void draw(Layer *layer,GContext *ctx) {
   GRect b=layer_get_bounds(layer); int inset=PBL_IF_ROUND_ELSE(b.size.w/7,7);
   graphics_context_set_fill_color(ctx,GColorBlack); graphics_fill_rect(ctx,b,0,GCornerNone);
   graphics_context_set_text_color(ctx,PBL_IF_COLOR_ELSE(GColorCyan,GColorWhite));
-  graphics_draw_text(ctx,s_view==VIEW_MENU?"SIGNAL STATION":s_view==VIEW_HELP?"FIELD MANUAL":s_view==VIEW_REVIEW?"REVIEW DRAFT":s_view==VIEW_DICTATION?"LISTENING":s_view==VIEW_HISTORY?"RECENT HISTORY":busy()?"CONTACTING":"FIELD REPORT",fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD),GRect(inset,s_view==VIEW_MENU?PBL_IF_ROUND_ELSE(10,2):9,b.size.w-inset*2,24),GTextOverflowModeTrailingEllipsis,GTextAlignmentCenter,NULL);
+  graphics_draw_text(ctx,s_view==VIEW_HOME_REVIEW?"REVIEW ACTION":home_view()?"HOME FAVORITES":s_view==VIEW_MENU?"SIGNAL STATION":s_view==VIEW_HELP?"FIELD MANUAL":s_view==VIEW_REVIEW?"REVIEW DRAFT":s_view==VIEW_DICTATION?"LISTENING":s_view==VIEW_HISTORY?"RECENT HISTORY":busy()?"CONTACTING":"FIELD REPORT",fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD),GRect(inset,s_view==VIEW_MENU?PBL_IF_ROUND_ELSE(10,2):9,b.size.w-inset*2,24),GTextOverflowModeTrailingEllipsis,GTextAlignmentCenter,NULL);
   if (s_view==VIEW_MENU) {
     graphics_context_set_text_color(ctx,GColorWhite);
     graphics_draw_text(ctx,"PRESS RIGHT BUTTONS",fonts_get_system_font(FONT_KEY_GOTHIC_14),GRect(inset,26,b.size.w-inset*2,18),GTextOverflowModeTrailingEllipsis,GTextAlignmentCenter,NULL);
   }
   graphics_context_set_stroke_color(ctx,PBL_IF_COLOR_ELSE(GColorCyan,GColorWhite)); graphics_draw_line(ctx,GPoint(inset,s_view==VIEW_MENU?44:34),GPoint(b.size.w-inset,s_view==VIEW_MENU?44:34));
   graphics_context_set_text_color(ctx,GColorWhite);
-  const char *footer=s_view==VIEW_REVIEW?"Select: Send | Back: keep":busy()?"Back: stop":s_view==VIEW_MENU?(s_connected?(s_bridge_ready?"Hold SELECT: help":"Open phone app"):"Phone disconnected"):"Up/Down: read";
+  const char *footer=s_view==VIEW_HOME_REVIEW?"Select: Confirm | Back: cancel":s_view==VIEW_HOME_LIST?"Up/Down: choose | Select":s_view==VIEW_HOME_DETAIL?(s_home_intent.action[0]?"Select: review | Back: home":"Up/Down: read | Back: home"):s_view==VIEW_HOME_HANDOFF?"Select: phone | Back: home":s_view==VIEW_HOME_RESULT?"Select: favorites | Back: home":s_view==VIEW_REVIEW?"Select: Send | Back: keep":busy()?"Back: stop":s_view==VIEW_MENU?(s_connected?(s_bridge_ready?(s_home_available?"Hold DOWN: Home":"Hold SELECT: help"):"Open phone app"):"Phone disconnected"):"Up/Down: read";
   graphics_draw_text(ctx,footer,fonts_get_system_font(FONT_KEY_GOTHIC_14),GRect(inset,b.size.h-32,b.size.w-2*inset,20),GTextOverflowModeTrailingEllipsis,GTextAlignmentCenter,NULL);
 }
-static void redraw(void) { if (s_canvas) layer_mark_dirty(s_canvas); if (s_body) layer_mark_dirty(s_body); }
+static void redraw(void) { if (s_window && s_menu_clicks!=(s_view==VIEW_MENU)) { s_menu_clicks=s_view==VIEW_MENU; window_set_click_config_provider(s_window,clicks); } if (s_canvas) layer_mark_dirty(s_canvas); if (s_body) layer_mark_dirty(s_body); }
 static void connection_changed(bool connected) {
-  s_connected=connected; if (!connected) s_bridge_ready=false;
+  s_connected=connected; if (!connected) { s_bridge_ready=false; s_home_available=false; }
   if (!connected && busy()) cancel_turn("Phone connection lost. Reconnect to ask again.");
   if (connected) { s_ready_pending=true; flush(NULL); } redraw();
 }

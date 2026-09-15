@@ -41,14 +41,16 @@ print('PASS preserved message IDs, text-only build, and sleep episode contract')
 
 # Compile the real button handlers against narrow platform stubs: home shortcuts
 # must not become collection/provider actions while reading a saved record.
-handlers = source[source.index('static void local_action('):source.index('static void clicks(')]
+handlers = source[source.index('static void local_action('):source.index('static void clicks(', source.index('static void local_action('))]
 request_helper = source[source.index('static void request('):source.index('static void retry_flush(')]
 program = r'''#include <assert.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
+#include <time.h>
+#include "signal_home.h"
 typedef void *ClickRecognizerRef;
-enum { VIEW_MENU, VIEW_READER, VIEW_HELP, VIEW_WAIT, VIEW_DICTATION, VIEW_HISTORY, VIEW_REVIEW };
+enum { VIEW_MENU, VIEW_READER, VIEW_HELP, VIEW_WAIT, VIEW_DICTATION, VIEW_HISTORY, VIEW_REVIEW, VIEW_HOME_LIST, VIEW_HOME_DETAIL, VIEW_HOME_REVIEW, VIEW_HOME_RESULT, VIEW_HOME_HANDOFF };
 static int s_view, s_scroll, s_scroll_max=200, requests, asks, cancels, exits;
 static bool s_connected, s_bridge_ready, s_ready_pending, s_phone_record;
 static char s_status[160], s_kind[16], s_prompt[401], s_answer[1024], s_phone_hint[100];
@@ -56,7 +58,17 @@ static unsigned s_answer_id, s_handoff_id;
 #define requested s_kind
 static unsigned s_request_id=10;
 static bool s_request_pending;
-static bool busy(void) { return s_view==VIEW_WAIT || s_view==VIEW_DICTATION || s_view==VIEW_REVIEW; }
+static SignalHomePage s_home_page;
+static SignalHomeIntent s_home_intent;
+static int s_home_selected, home_requests, home_cancels;
+static void clear_timeout(void) {}
+static bool home_view(void) { return s_view>=VIEW_HOME_LIST || (s_view==VIEW_WAIT && !strncmp(s_kind,"home-",5)); }
+static void home_cancel(void) { home_cancels++;s_home_intent.consumed=true; }
+static void home_expired(void *unused) { s_view=VIEW_HOME_RESULT; }
+static void home_request(const char *kind) { home_requests++;strcpy(s_kind,kind);s_view=VIEW_WAIT; }
+static void home_list(unsigned page) { s_home_page.page=page;home_request("home-list"); }
+
+static bool busy(void) { return s_view==VIEW_WAIT || s_view==VIEW_DICTATION || s_view==VIEW_REVIEW || s_view==VIEW_HOME_REVIEW; }
 static void redraw(void) {}
 static void flush(void *unused) {}
 static void next_request(void) { s_request_id++; }
@@ -90,13 +102,22 @@ int main(void) {
   select_long(NULL,NULL);assert(s_handoff_id==77 && requests==3 && asks==1);
   select_click(NULL,NULL);assert(asks==2);
   s_handoff_id=0;s_connected=false;select_long(NULL,NULL);assert(!s_handoff_id && strstr(s_phone_hint,"disconnected"));
-  puts("PASS actual home shortcuts, provider-free local actions, contextual scrolling and Back");
+  s_view=VIEW_MENU;down_long(NULL,NULL);assert(home_requests==1 && !strcmp(s_kind,"home-list"));
+  s_view=VIEW_HOME_LIST;s_home_page.count=1;s_home_page.page=0;s_home_page.pages=2;strcpy(s_home_page.items[0].id,"exact-favorite");
+  select_click(NULL,NULL);assert(home_requests==2 && !strcmp(s_kind,"home-open") && !strcmp(s_home_intent.favorite,"exact-favorite"));
+  s_view=VIEW_HOME_LIST;down_click(NULL,NULL);assert(s_home_selected==1);select_click(NULL,NULL);assert(s_home_page.page==1 && home_requests==3);
+  s_view=VIEW_HOME_DETAIL;strcpy(s_home_intent.action,"turn-on");select_click(NULL,NULL);assert(!strcmp(s_kind,"home-review") && home_requests==4);
+  assert(signal_home_intent(&s_home_intent,"exact-favorite","turn-on","nonce",(unsigned)time(NULL)+100,(unsigned)time(NULL)));s_view=VIEW_HOME_REVIEW;
+  select_long(NULL,NULL);assert(s_view==VIEW_HOME_REVIEW && home_requests==4);
+  select_click(NULL,NULL);assert(s_home_intent.consumed && !strcmp(s_kind,"home-confirm") && home_requests==5);
+  select_click(NULL,NULL);assert(home_requests==5);back_click(NULL,NULL);assert(home_cancels==1 && s_view==VIEW_MENU);
+  puts("PASS actual shortcuts, Home navigation/review/single confirmation, scrolling and Back");
 }
 '''
 with tempfile.TemporaryDirectory() as tmp:
     c = Path(tmp) / 'buttons.c'; c.write_text(program)
     binary = Path(tmp) / 'buttons'
-    subprocess.run(['cc', '-std=c99', '-Wall', '-Werror', str(c), '-o', str(binary)], check=True)
+    subprocess.run(['cc', '-std=c99', '-Wall', '-Werror', '-I',str(root/'src/c'),str(c), '-o', str(binary)], check=True)
     subprocess.run([str(binary)], check=True)
 
 # Exercise the real batch walker with sparse source selections. Instrument calls
