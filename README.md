@@ -2,6 +2,8 @@
 
 Capture signals. Notice what changes.
 
+[![Download Signal Station](https://img.shields.io/badge/Signal_Station-Download-2563eb?style=flat-square)](https://dr.eamer.dev/downloads/apps/signal-station/) [![Ambient Time](https://img.shields.io/badge/Ambient_Time-Collection-181717?style=flat-square)](https://github.com/ambient-time)
+
 I built Signal Station as a field notebook for Android and Pebble. Save the
 readings you choose, compare places over time, and ask questions about what you
 find. You can also chat from your wrist without collecting anything first.
@@ -134,5 +136,9 @@ My original code and documentation use the [MIT License](LICENSE). Bundled
 third-party software retains its own notices, including Pebble Clay. Historical
 files still need a final publication review; see [publication preparation](docs/open-source.md).
 
-Made by [Luke Steuber](https://lukesteuber.com). Questions:
+## Around here
+
+[Luke Steuber](https://github.com/lukeslp) · [Data Poems](https://github.com/data-poems) · [Ambient Time](https://github.com/ambient-time) · [Actually Useful AI](https://github.com/actually-useful-ai) · [One Impossible Thing](https://github.com/one-impossible-thing)
+
+Made by [Luke Steuber](https://lukesteuber.com). Questions or collaboration:
 [luke@lukesteuber.com](mailto:luke@lukesteuber.com).
