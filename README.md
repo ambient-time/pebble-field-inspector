@@ -1,8 +1,11 @@
 # Signal Station
 
-I built Signal Station to ask questions from a Pebble with a little more context.
-Speak a question, collect the readings you choose, and read a short answer on
-your wrist. The phone keeps the full conversation and survey history.
+Capture signals. Notice what changes.
+
+I built Signal Station as a field notebook for Android and Pebble. Save the
+readings you choose, compare places over time, and ask questions about what you
+find. You can also chat from your wrist without collecting anything first.
+The phone keeps full conversations and saved readings.
 
 By Luke Steuber. Install the separate **Signal Station** Android app alongside
 your usual Pebble app. Signal Station owns chat, readings and local history;
@@ -12,10 +15,10 @@ the Pebble app keeps the watch connected. The watch app is still in testing.
 
 The home screen maps directly to the three right-hand buttons:
 
-- **Up — Capture:** save the enabled readings on the phone without sending them
+- **Up · Capture:** save the enabled readings on the phone without sending them
   to an answer provider. A provider key is not needed.
-- **Select — Ask:** speak a question and read the provider's answer.
-- **Down — History:** read the five most recent available saved records from the
+- **Select · Ask:** speak a question and read the provider's answer.
+- **Down · History:** read the five most recent available saved records from the
   phone without a language model request.
 
 Inside a report or history, Up/Down scroll. Back cancels active work and returns
@@ -43,7 +46,7 @@ attachments, review the exact outgoing context and send. Readings, saved history
 and confirmed memories are optional context for chat. Ordinary chat also works
 without the watch. See the [user guide and downloads](https://dr.eamer.dev/downloads/apps/signal-station/).
 
-Capture receipts are prepared by the phone. The watch's short display allowance
+The phone prepares capture receipts. The watch's short display allowance
 is separate from the phone's saved-capture and chat-context budgets. A capture
 limit warning refers to unsaved phone readings; a scan-retention warning refers
 to additional radio results outside the bounded scan. The phone's History shows
@@ -62,8 +65,7 @@ source coverage.
    choose your Pebble host and watch, then tap **Check connection**. Open Signal
    Station on the watch and press the middle right button to ask.
 
-Provider keys stay
-in protected phone storage. Watch settings never open a web form for keys.
+Provider keys stay in protected phone storage. Watch settings never open a web form for keys.
 Stock recognition availability and app-specific OpenAI recognition are separate
 from the answer provider. A provider or permission failure stays visible rather
 than silently switching services.
@@ -110,12 +112,26 @@ server source remains available for recovery. Signal Station does not call it.
 
 ## Pebble Store release
 
-Version 1.6.6 is published in the existing unlisted Pebble listing as of September
-14, 2026, with five native screenshots, a preview GIF and a banner for each of the six supported targets. The
-Store share page and package route still returned not found during verification,
-so installation through the Store is not yet confirmed. The
+The [Pebble Store listing](https://apps.repebble.com/37360ca4d9764881bd1d6f4d)
+is public and serves version 1.6.6. The watch app is still in testing. Each of
+the six targets has a banner and three screenshots showing the home screen,
+phone handoff and help. The
 [direct download](https://dr.eamer.dev/downloads/apps/signal-station/) remains
-available. See [the publication receipt](store/publication-1.6.6.json) for the
-exact artifact, saved Store state and verification limits.
+available. The [release receipt](store/publication-1.6.6.json) records the
+original upload; the [media update](store/assets/signals-20260914/publication.json)
+records the later public listing and screenshot cleanup.
 
 Hold Select while reading a reply, then tap Open full reply in the Android app. Android build 16 or later is required; the exact saved reply opens without replacing a phone draft. Resume conversation remains a separate action.
+
+## Contribute
+
+Start with [the build guide](BUILD.md). Keep changes small and describe the
+behavior you tested. For watch changes, name the target and distinguish emulator
+results from a physical-device run. Never include provider keys, personal
+captures or identifiable radio scans in an issue or patch.
+
+This repository is preparing for public source access. It still needs a root
+license and a final review of historical files. See [publication preparation](docs/open-source.md).
+
+Made by [Luke Steuber](https://lukesteuber.com). Questions:
+[luke@lukesteuber.com](mailto:luke@lukesteuber.com).
