@@ -55,9 +55,9 @@ store publication or physical validation.
 | Method and route | Purpose |
 |---|---|
 | GET `capabilities` | `configured`, enabled source keys, transcript confirmation and reduced-motion preference |
-| POST `confirm-wake` | Confirm a phone-owned voice draft by bound `request_id` only; never sends transcript text |
-| POST `start` | Start `{kind, request_id, prompt?}`; kinds `ask`, `survey` (analysis), and `capture` (save without inference) |
-| GET `status?request_id=n` | Poll every 500ms; `working`, `ready` with bounded `text`, or `error` |
+| POST `question` | Native-owned question draft, explicit Home selection, immutable review and one-use send; see below |
+| POST `start` | Legacy transport for capture/record operations; standalone wrist Ask uses the reviewed question route |
+| GET `status?request_id=n` | Poll every 500ms; `working`, `ready` with bounded `text` and optional exact `record_id`/`record_kind`, or `error` |
 | GET `history?request_id=n` | Newest five available saved records as `{text}`, bounded to 900 UTF-8 bytes; no provider request |
 | POST `watch-data` | Serialized `{request_id, observations, complete}` batches |
 | POST `delivered` | Idempotent text receipt acknowledgement after watch validation |
@@ -68,7 +68,10 @@ store publication or physical validation.
 Native `configmessage` events carry `event.data` and receive `event.respond`.
 `survey` and `capture` ask the watch to collect selected metrics; `record` starts watch
 dictation and retains the native request ID through the resulting `ask`.
-`review` presents an exact voice draft (at most 400 UTF-8 bytes) and provider/context description (at most 350 bytes). Up/Down scroll; Select sends the explicit confirmation; Back keeps it on the phone. Long Select does nothing during review. Review expires after 100 seconds and never invokes a provider automatically. Longer drafts must be reviewed on the phone.
+The current source negotiates `QuestionReviewVersion=1`. Older immediate-Ask and
+`confirm-wake` contracts cannot send from the wrist; their drafts require phone
+review. Native `question-review` offers use the same immutable review as a wrist
+question. Reviews expire after 120 seconds and never invoke a provider automatically.
 `cancel` invalidates local state without a native cancellation feedback loop.
 `ask` attaches to a phone operation for watch delivery without another provider request,
 including a capture with no watch sources. `refresh` re-reads capabilities after
@@ -124,3 +127,41 @@ button handlers. In the Android companion, run
 to exercise both Home and the existing protocol regressions against its actual
 standalone runtime. These tests and six-target compilation do not prove physical
 watch interaction or successful device actions.
+
+## Reviewed questions (unreleased source)
+
+The published 1.7.1 package is unchanged. The current source adds these append-only
+keys, numbered 10034–10050: `BridgeSession`, `QuestionReviewVersion`, `QuestionMode`,
+`QuestionDraft`, `QuestionRevision`, `QuestionReview`, `QuestionExpires`,
+`QuestionContextKind`, `QuestionContextId`, `QuestionHomeMode`, `QuestionSystem`,
+`QuestionSelected`, `QuestionPage`, `QuestionPages`, `QuestionItems`, `RecordId`,
+`RecordKind`. Existing key numbers and package identities are unchanged.
+
+POST `question` accepts `kind` and a request ID. `question-open` carries the
+transcript plus `context_kind` (`none`, `capture`, `answer`) and exact saved
+`context_id` when applicable. An edit also identifies the existing draft and
+revision. Other commands identify that native-owned draft and revision:
+`question-home` changes `mode` (`none`, `read`, `actions`) and optionally an explicit
+connection selection; `question-systems` requests a four-row page;
+`question-review` prepares an exact review; `question-send` echoes its one-use
+review ID; `question-cancel` and `question-phone` cancel or hand off that draft.
+
+Native replies are `draft`, `systems`, `review`, `phone`, or `working`. A review
+contains the complete provider, transcript, selected evidence and Home authority
+in at most 900 UTF-8 bytes, with an expiry no more than 120 seconds ahead. The
+watch never truncates a confirmable review. Larger contexts stay intact on the
+phone. Up/Down reveal the whole review before Select can send; short reviews show
+the enabled Send footer on their first paint. Edit and scope changes invalidate
+the prior review. Without a microphone, the exact context opens a phone draft.
+
+A runtime replacement issues `ready-challenge` with a new `BridgeSession`.
+The watch invalidates old review controls and renegotiates without restarting
+the watch app. Both immediate and callback transport failures share an envelope
+budget of four attempts, then pause until explicit retry or reconnect. The retry
+pattern is adapted from Luke Steuber's MIT-licensed Gadget Watch `0ffef1e`.
+
+Run `node scripts/test_signal_question_watch_protocol.js` in the companion for
+the actual standalone question flow. The optional historical test path in the
+Home test runner runs the historical PKJS separately; its old immediate-Ask
+behavior is not a standalone compatibility promise. The watch test command
+includes sanitized production-parser, retry and pre-paint layout checks.

@@ -62,7 +62,24 @@
       "HomeAction",
       "HomeExpires",
       "HomeItems",
-      "HomeMode"
+      "HomeMode",
+      "BridgeSession",
+      "QuestionReviewVersion",
+      "QuestionMode",
+      "QuestionDraft",
+      "QuestionRevision",
+      "QuestionReview",
+      "QuestionExpires",
+      "QuestionContextKind",
+      "QuestionContextId",
+      "QuestionHomeMode",
+      "QuestionSystem",
+      "QuestionSelected",
+      "QuestionPage",
+      "QuestionPages",
+      "QuestionItems",
+      "RecordId",
+      "RecordKind"
     ],
     "resources": {
       "media": [

@@ -29,6 +29,12 @@ describes future ports; it does not establish another working companion.
 
 ## On your wrist
 
+Unreleased source adds an exact review before each wrist question. After a
+capture, Select asks about that specific saved record; after an answer, Select
+starts a follow-up. The draft offers Review and send, per-question Home access,
+Edit question, and Continue on phone. Home defaults to None for every new
+question. These changes are not part of the published 1.7.1 package described above.
+
 The home screen maps directly to the three right-hand buttons:
 
 - **Up · Capture:** save the enabled readings on the phone without sending them

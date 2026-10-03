@@ -51,11 +51,21 @@ program = r'''#include <assert.h>
 #include <string.h>
 #include <time.h>
 #include "signal_home.h"
+#include "signal_transport.h"
 typedef void *ClickRecognizerRef;
-enum { VIEW_MENU, VIEW_READER, VIEW_HELP, VIEW_WAIT, VIEW_DICTATION, VIEW_HISTORY, VIEW_REVIEW, VIEW_HOME_LIST, VIEW_HOME_DETAIL, VIEW_HOME_REVIEW, VIEW_HOME_RESULT, VIEW_HOME_HANDOFF };
+enum { VIEW_MENU, VIEW_READER, VIEW_HELP, VIEW_WAIT, VIEW_DICTATION, VIEW_HISTORY, VIEW_REVIEW, VIEW_HOME_LIST, VIEW_HOME_DETAIL, VIEW_HOME_REVIEW, VIEW_HOME_RESULT, VIEW_HOME_HANDOFF, VIEW_QUESTION_DRAFT, VIEW_QUESTION_SYSTEMS, VIEW_QUESTION_REVIEW, VIEW_QUESTION_PHONE };
 static int s_view, s_scroll, s_scroll_max=200, requests, asks, cancels, exits;
 static bool s_connected, s_bridge_ready, s_ready_pending, s_phone_record;
-static char s_status[160], s_kind[16], s_prompt[401], s_answer[1024], s_phone_hint[100];
+static char s_status[160], s_kind[24], s_prompt[401], s_answer[1024], s_phone_hint[100];
+static SignalTransport s_transport;
+static SignalHomePage s_question_systems;
+static int s_question_row,question_requests;
+static unsigned s_question_page,s_question_expires,s_cancel_id;
+static bool s_question_read,s_question_selected,s_question_has_prompt;
+static char s_question_draft[65],s_question_review[65],s_question_mode[8],s_question_system[65],s_record_id[65],s_context_id[65],s_record_kind[8],s_context_kind[8];
+static void question_request(const char *kind){question_requests++;strcpy(s_kind,kind);s_view=VIEW_WAIT;}
+static bool question_view(void){return s_view>=VIEW_QUESTION_DRAFT || (s_view==VIEW_WAIT && !strncmp(s_kind,"question-",9));}
+static void question_expired(void *unused){s_question_review[0]=0;s_view=VIEW_QUESTION_DRAFT;}
 static unsigned s_answer_id, s_handoff_id;
 #define requested s_kind
 static unsigned s_request_id=10;
@@ -65,7 +75,7 @@ static SignalHomeIntent s_home_intent;
 static bool s_home_review_read;
 static int s_home_selected, home_requests, home_cancels;
 static void clear_timeout(void) {}
-static bool home_view(void) { return s_view>=VIEW_HOME_LIST || (s_view==VIEW_WAIT && !strncmp(s_kind,"home-",5)); }
+static bool home_view(void) { return (s_view>=VIEW_HOME_LIST && s_view<=VIEW_HOME_HANDOFF) || (s_view==VIEW_WAIT && !strncmp(s_kind,"home-",5)); }
 static void home_cancel(void) { home_cancels++;s_home_intent.consumed=true; }
 static void home_expired(void *unused) { s_view=VIEW_HOME_RESULT; }
 static void home_request(const char *kind) { home_requests++;strcpy(s_kind,kind);s_view=VIEW_WAIT; }
@@ -80,7 +90,7 @@ static void signal_utf8_copy(char *out,size_t size,const char *text) { snprintf(
 static void ask(void) { asks++; }
 static void cancel_turn(const char *message) { cancels++;s_view=VIEW_READER; }
 static void window_stack_pop(bool animated) { exits++; }
-''' + request_helper + handlers + r'''
+''' + source[source.index('static void fresh_question('):source.index('static void question_request(const char *kind) {')] + request_helper + handlers + r'''
 int main(void) {
   s_connected=s_bridge_ready=true;s_view=VIEW_MENU;
   up_click(NULL,NULL);assert(requests==1 && !strcmp(requested,"capture"));
@@ -97,12 +107,12 @@ int main(void) {
   select_long(NULL,NULL);assert(asks==1 && requests==2 && s_view==VIEW_REVIEW);
   down_click(NULL,NULL);assert(s_scroll==36 && requests==2);
   s_request_id=77;strcpy(s_prompt,"Reviewed original");select_click(NULL,NULL);
-  assert(requests==3 && !s_phone_record && s_request_id==77 && !s_prompt[0] && !strcmp(requested,"confirm-wake"));
-  s_view=VIEW_REVIEW;back_click(NULL,NULL);assert(cancels==2 && s_view==VIEW_MENU);
-  s_view=VIEW_REVIEW;s_connected=false;select_click(NULL,NULL);assert(requests==3 && cancels==3);
+  assert(requests==2 && cancels==2); // An older review never confirms on an upgraded watch.
+  s_view=VIEW_REVIEW;back_click(NULL,NULL);assert(cancels==3 && s_view==VIEW_MENU);
+  s_view=VIEW_REVIEW;s_connected=false;select_click(NULL,NULL);assert(requests==2 && cancels==4);
   s_connected=s_bridge_ready=true;s_view=VIEW_READER;s_status[0]=0;
   strcpy(s_answer,"Saved reply");s_answer_id=77;
-  select_long(NULL,NULL);assert(s_handoff_id==77 && requests==3 && asks==1);
+  select_long(NULL,NULL);assert(s_handoff_id==77 && requests==2 && asks==1);
   select_click(NULL,NULL);assert(asks==2);
   s_handoff_id=0;s_connected=false;select_long(NULL,NULL);assert(!s_handoff_id && strstr(s_phone_hint,"disconnected"));
   s_view=VIEW_MENU;down_long(NULL,NULL);assert(home_requests==1 && !strcmp(s_kind,"home-list"));
@@ -116,6 +126,16 @@ int main(void) {
   s_home_review_read=true;
   select_click(NULL,NULL);assert(s_home_intent.consumed && !strcmp(s_kind,"home-confirm") && home_requests==5);
   select_click(NULL,NULL);assert(home_requests==5);back_click(NULL,NULL);assert(home_cancels==1 && s_view==VIEW_MENU);
+  strcpy(s_record_id,"exact-capture");strcpy(s_record_kind,"capture");s_status[0]=0;s_view=VIEW_READER;select_click(NULL,NULL);
+  assert(!strcmp(s_context_id,"exact-capture") && !strcmp(s_context_kind,"capture"));
+  s_view=VIEW_MENU;select_click(NULL,NULL);assert(!s_context_id[0] && !strcmp(s_context_kind,"none"));
+  s_view=VIEW_QUESTION_REVIEW;strcpy(s_question_review,"review");s_question_expires=(unsigned)time(NULL)+120;s_question_read=false;
+  select_click(NULL,NULL);assert(question_requests==0);s_question_read=true;select_click(NULL,NULL);assert(question_requests==1 && !strcmp(s_kind,"question-send"));
+  select_click(NULL,NULL);assert(question_requests==1);
+  s_view=VIEW_QUESTION_DRAFT;s_question_draft[0]=0;s_question_row=0;select_click(NULL,NULL);
+  assert(question_requests==2 && !strcmp(s_kind,"question-open"));
+  strcpy(s_context_id,"stale");strcpy(s_question_draft,"stale");s_view=VIEW_HELP;select_long(NULL,NULL);
+  assert(!s_context_id[0] && !s_question_draft[0] && !strcmp(s_context_kind,"none"));
   puts("PASS actual shortcuts, Home navigation/review/single confirmation, scrolling and Back");
 }
 '''
@@ -137,7 +157,7 @@ typedef void DictationSession;
 typedef int DictationSessionStatus;
 enum { DictationSessionStatusSuccess };
 enum { VIEW_READER, VIEW_DICTATION };
-static bool s_configured,s_connected,s_bridge_ready,s_phone_record,s_confirm;
+static bool s_configured,s_connected,s_bridge_ready,s_phone_record,s_confirm,s_question_available;
 static int s_view,s_scroll,creates,starts;
 static char s_status[160];
 static DictationSession *s_dictation;
@@ -153,7 +173,8 @@ static DictationSessionStatus dictation_session_start(DictationSession *session)
 int main(void){
   s_configured=s_connected=true;s_bridge_ready=false;ask();
   assert(creates==0 && starts==0 && s_view==VIEW_READER && strstr(s_status,"phone"));
-  s_bridge_ready=true;s_status[0]=0;ask();
+  s_bridge_ready=true;s_status[0]=0;ask();assert(creates==0 && starts==0);
+  s_question_available=true;ask();
   assert(creates==1 && starts==1 && s_view==VIEW_DICTATION);
   puts("PASS Ask waits for native bridge readiness after reconnect");
 }
@@ -162,6 +183,29 @@ with tempfile.TemporaryDirectory() as tmp:
     c=Path(tmp)/'ask.c';c.write_text(program)
     binary=Path(tmp)/'ask'
     subprocess.run(['cc','-std=c99','-Wall','-Werror',str(c),'-o',str(binary)],check=True)
+    subprocess.run([str(binary)],check=True)
+
+# The actual non-microphone branch creates a scoped native draft without sending
+# any inherited transcript, instead of leaving the user at a dead end.
+program=r'''#include <assert.h>
+#include <stdbool.h>
+#include <stdio.h>
+#include <string.h>
+enum { VIEW_READER,VIEW_DICTATION };
+static bool s_configured=true,s_connected=true,s_bridge_ready=true,s_question_available=true,s_phone_record;
+static int s_view,s_scroll,opens;
+static char s_status[160],s_prompt[401]="Unrelated previous question";
+static bool busy(void){return false;}
+static void redraw(void){}
+static void cancel_turn(const char *message){(void)message;}
+static void question_request(const char *kind){assert(!strcmp(kind,"question-open"));opens++;}
+'''+ask+r'''
+int main(void){ask();assert(opens==1 && !s_prompt[0]);puts("PASS non-microphone Ask opens an exact native draft without an inherited prompt");}
+'''
+with tempfile.TemporaryDirectory() as tmp:
+    c=Path(tmp)/'nonmic.c';c.write_text(program)
+    binary=Path(tmp)/'nonmic'
+    subprocess.run(['cc','-std=c99','-Wall','-Werror','-Wno-unused-variable',str(c),'-o',str(binary)],check=True)
     subprocess.run([str(binary)],check=True)
 
 # Exercise the real batch walker with sparse source selections. Instrument calls

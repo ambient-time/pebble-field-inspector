@@ -6,11 +6,12 @@ publication and remaining physical phone/watch acceptance.
 
 Hold Down on the home screen to open Home favorites selected on the phone.
 Up and Down move through up to four favorites per page and Previous/Next page
-rows. Select opens the full detail. If the phone offers an action, Select requests
-its review. Without an applicable standing permission, the phone returns a review
-that expires within two minutes: Select confirms once; Back cancels. A phone
-permission may already authorize the exact action, in which case its result
-appears directly. Hold Select never confirms an action.
+rows. Select opens the full detail. The unreleased reviewed-question source
+changes actions to always prepare → review → explicit confirm, including actions
+with standing permissions. Reviews expire within two minutes. Select confirms
+once after all details fit or have been scrolled into view; Back cancels.
+Hold Select never confirms an action. Published 1.7.1 previously dispatched an
+exact standing grant directly from Review; its immutable release record remains.
 
 Tap Up still captures readings, tap Select asks, tap Down opens History, and Hold
 Select opens help from the home screen. Reports and Home detail scroll with Up
@@ -35,7 +36,9 @@ Existing key numbers are unchanged. Append-only keys use Pebble's 10000 base:
 
 Ready includes HomeVersion 1. The phone replies with HomeVersion 1 only when its
 native capability `home_version` is 1 and the watch negotiated support. Absence
-or zero leaves Home unavailable; existing capture, ask and history still work.
+or zero leaves Home unavailable. Current action review/confirmation additionally
+requires `QuestionReviewVersion=1` in both peers; older pairings retain capture,
+history and Home reads but must review questions and actions on the phone.
 
 Every request has RequestId and HomeVersion. RequestType values:
 
@@ -56,8 +59,8 @@ Other modes carry HomeFavorite matching the request and exact ResponseText of
 at most 900 UTF-8 bytes. A detail may include HomeAction. Review also requires
 the same action, a new immutable HomeIntent and HomeExpires. The phone binds the
 intent to the favorite, exact target, action and parameters; the watch echoes
-identifiers only. A result may follow home-review when an exact standing grant
-already permits execution.
+identifiers only. An unavailable action may return a terminal result instead of
+a review, but preparing a review must never dispatch the action.
 
 Oversized labels, identities or text cannot become a shortened actionable
 review: the runtime hands off to the phone, without executable IDs. Malformed

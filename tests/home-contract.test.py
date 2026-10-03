@@ -60,9 +60,9 @@ int main(void){
  reset("home-review");number(&d,MESSAGE_KEY_HomeExpires,(uint32_t)time(NULL)+121);home_receive(&d,10);assert(s_view==VIEW_HOME_RESULT && !s_ack_id);
  reset("home-review");number(&d,MESSAGE_KEY_HomeExpires,(uint32_t)time(NULL)+100);text(&d,MESSAGE_KEY_HomeAction,"different");home_receive(&d,10);assert(s_view==VIEW_HOME_RESULT);
  reset("home-review");text(&d,MESSAGE_KEY_HomeAction,"action");char huge[902];memset(huge,'x',901);huge[901]=0;text(&d,MESSAGE_KEY_ResponseText,huge);home_receive(&d,10);assert(s_view==VIEW_HOME_RESULT && cancels==1);assert(strstr(s_home_text,"safely"));
- reset("home-review");d=message("result");text(&d,MESSAGE_KEY_HomeFavorite,"favorite");text(&d,MESSAGE_KEY_ResponseText,"Executed under the standing permission.");home_receive(&d,10);assert(s_view==VIEW_HOME_RESULT && s_ack_id==10); // Granted action bypasses unnecessary review.
+ reset("home-review");d=message("result");text(&d,MESSAGE_KEY_HomeFavorite,"favorite");text(&d,MESSAGE_KEY_ResponseText,"Action unavailable. Check the phone.");home_receive(&d,10);assert(s_view==VIEW_HOME_RESULT && s_ack_id==10); // A refusal does not fabricate a confirmable intent.
  reset("home-list");d=message("handoff");s_home_wire.favorite[0]=0;text(&d,MESSAGE_KEY_HomeFavorite,"");text(&d,MESSAGE_KEY_ResponseText,"Review favorites on phone.");home_receive(&d,10);assert(s_view==VIEW_HOME_HANDOFF);
- puts("PASS production Home inbox: scoped replies, replay ACK, exact review, expiry, malformed/oversized rejection, granted result and handoff");
+ puts("PASS production Home inbox: scoped replies, replay ACK, exact review, expiry, malformed/oversized rejection, refusal and handoff");
 }
 '''
 with tempfile.TemporaryDirectory(prefix='signal-home-c-') as td:
