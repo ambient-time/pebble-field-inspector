@@ -30,3 +30,15 @@ does not establish wearer perception, dictation quality or battery acceptance.
 The Android companion's `docs/signal-station/private-delivery-2026-10-03.md`
 records the upgrade checks, signing identity and remaining acceptance. Public
 release and public companion download updates remain withheld.
+
+## Reconnected device update
+
+The user's subsequent request to update the reconnected phone and watch authorized
+the deferred physical installation. The exact pinned 1.8.0 PBW above installed
+successfully through the Pixel 10. A developer run-state request confirmed UUID
+`e2fd86ec-dfb8-460c-afc1-ebe4d071657a`. A notification covered the screenshot, so
+foreground rendering and review/handoff interaction remain unverified. No question,
+capture or Home action was sent. The matching phone now has development build 19
+with foreground screen lighting; its installed hash is recorded in the companion's
+`docs/signal-station/screen-awake.md`. Pairing and saved data were not cleared.
+The unpublished 1.8.0 draft and public 1.7.1 listing remain unchanged.
