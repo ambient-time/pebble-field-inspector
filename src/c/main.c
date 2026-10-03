@@ -705,8 +705,8 @@ static void draw(Layer *layer,GContext *ctx) {
   graphics_context_set_text_color(ctx,GColorWhite);
   const char *footer=s_view==VIEW_HOME_REVIEW?(s_home_review_read?"Select: Confirm | Back: cancel":"Down: read more | Back: cancel"):s_view==VIEW_HOME_LIST?"Up/Down: choose | Select":s_view==VIEW_HOME_DETAIL?(s_home_intent.action[0]?"Select: review | Back: home":"Up/Down: read | Back: home"):s_view==VIEW_HOME_HANDOFF?"Select: phone | Back: home":s_view==VIEW_HOME_RESULT?"Select: favorites | Back: home":s_view==VIEW_REVIEW?"Select: Send | Back: keep":busy()?"Back: stop":s_view==VIEW_MENU?(s_connected?(s_bridge_ready?(s_home_available?"Hold DOWN: Home":"Hold SELECT: help"):"Open phone app"):"Phone disconnected"):"Up/Down: read";
   if (s_view>=VIEW_HOME_LIST) {
-    const char *primary=s_view==VIEW_HOME_REVIEW?(s_home_review_read?"Select: confirm":"Down: read more"):s_view==VIEW_HOME_LIST?"Select: open":s_view==VIEW_HOME_DETAIL?(s_home_intent.action[0]?"Select: review":"Up/Down: read"):s_view==VIEW_HOME_HANDOFF?"Select: phone":"Select: favorites";
-    const char *secondary=s_view==VIEW_HOME_REVIEW?"Back: cancel":s_view==VIEW_HOME_LIST?"Up/Down: choose":"Back: home";
+    const char *primary=s_view==VIEW_HOME_REVIEW?(s_home_review_read?"Select: confirm":"Down: read more"):s_view==VIEW_HOME_LIST?(s_home_page.count?"Select: open":"Choose on phone"):s_view==VIEW_HOME_DETAIL?(s_home_intent.action[0]?"Select: review":"Up/Down: read"):s_view==VIEW_HOME_HANDOFF?"Select: phone":"Select: favorites";
+    const char *secondary=s_view==VIEW_HOME_REVIEW?"Back: cancel":s_view==VIEW_HOME_LIST?(s_home_page.count?"Up/Down: choose":"Back: home"):"Back: home";
     graphics_draw_text(ctx,primary,fonts_get_system_font(FONT_KEY_GOTHIC_14),GRect(inset,b.size.h-43,b.size.w-2*inset,18),GTextOverflowModeWordWrap,GTextAlignmentCenter,NULL);
     graphics_draw_text(ctx,secondary,fonts_get_system_font(FONT_KEY_GOTHIC_14),GRect(inset,b.size.h-28,b.size.w-2*inset,18),GTextOverflowModeWordWrap,GTextAlignmentCenter,NULL);
   } else {
