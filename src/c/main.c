@@ -24,6 +24,7 @@ static SignalHomeIntent s_home_intent, s_home_wire, s_home_cancel;
 static uint32_t s_home_reply_id, s_home_cancel_id;
 static uint16_t s_home_requested_page;
 static int s_home_selected;
+static bool s_home_review_read;
 static char s_home_text[SIGNAL_HOME_TEXT_CAP];
 static bool s_request_pending, s_ready_pending, s_clear_pending, s_settings_pending, s_snapshot_pending;
 static bool s_outbox_busy, s_snapshot_complete;
@@ -406,7 +407,7 @@ static void home_receive(DictionaryIterator *iter,uint32_t id) {
       const char *intent=home_string(iter,MESSAGE_KEY_HomeIntent,SIGNAL_HOME_ID_CAP); uint32_t expires;
       valid=!strcmp(s_kind,"home-review") && action && !strcmp(action,s_home_wire.action) && intent &&
         home_uint(iter,MESSAGE_KEY_HomeExpires,&expires) && signal_home_intent(&s_home_intent,favorite,action,intent,expires,(uint32_t)time(NULL));
-      if (valid) s_view=VIEW_HOME_REVIEW;
+      if (valid) { s_home_review_read=false; s_view=VIEW_HOME_REVIEW; }
     } else if (valid && !strcmp(mode,"detail")) {
       valid=!strcmp(s_kind,"home-open") && (!action || signal_home_id(action));
       if (valid) { memset(&s_home_intent,0,sizeof s_home_intent); strcpy(s_home_intent.favorite,favorite); if (action) strcpy(s_home_intent.action,action); s_view=VIEW_HOME_DETAIL; }
@@ -430,8 +431,10 @@ static void home_receive(DictionaryIterator *iter,uint32_t id) {
 static void inbox(DictionaryIterator *iter,void *context) {
   uint32_t home_version;
   Tuple *home_cap=dict_find(iter,MESSAGE_KEY_HomeVersion);
-  if (home_cap) s_home_available=home_uint(iter,MESSAGE_KEY_HomeVersion,&home_version) && home_version==SIGNAL_HOME_VERSION;
-  Tuple *t=dict_find(iter,MESSAGE_KEY_BridgeReady); if (t) s_bridge_ready=t->value->uint32!=0;
+  Tuple *t=dict_find(iter,MESSAGE_KEY_BridgeReady);
+  bool home_supported=home_cap && home_uint(iter,MESSAGE_KEY_HomeVersion,&home_version) && home_version==SIGNAL_HOME_VERSION;
+  s_home_available=signal_home_available_after_sync(s_home_available,t!=NULL,home_cap!=NULL,home_supported);
+  if (t) s_bridge_ready=t->value->uint32!=0;
   t=dict_find(iter,MESSAGE_KEY_Configured); if (t) s_configured=t->value->uint32!=0;
   t=dict_find(iter,MESSAGE_KEY_Enabled); if (t && t->type==TUPLE_CSTRING) snprintf(s_enabled,sizeof s_enabled,"%s",t->value->cstring);
   t=dict_find(iter,MESSAGE_KEY_ConfirmTranscript); if (t) s_confirm=t->value->uint32!=0;
@@ -506,7 +509,8 @@ static void dictated(DictationSession *session,DictationSessionStatus status,cha
 #endif
 static void ask(void) {
   if (busy()) { cancel_turn("Stopped."); return; }
-  if (!s_configured || !s_connected) { s_phone_record=false; s_view=VIEW_READER; snprintf(s_status,sizeof s_status,"Open Signal Station on your phone and configure a provider."); redraw(); return; }
+  if (!s_connected || !s_bridge_ready) { s_phone_record=false; s_view=VIEW_READER; snprintf(s_status,sizeof s_status,"Open Signal Station on your phone and check the watch connection."); redraw(); return; }
+  if (!s_configured) { s_phone_record=false; s_view=VIEW_READER; snprintf(s_status,sizeof s_status,"Open Signal Station on your phone and configure a provider."); redraw(); return; }
 #ifdef PBL_MICROPHONE
   if (!s_dictation) s_dictation=dictation_session_create(401,dictated,NULL);
   if (!s_dictation) { snprintf(s_status,sizeof s_status,"Dictation is unavailable."); s_view=VIEW_READER; redraw(); return; }
@@ -535,6 +539,7 @@ static void select_click(ClickRecognizerRef r,void *context) {
   }
   if (s_view==VIEW_HOME_DETAIL) { if (s_home_intent.action[0]) home_request("home-review"); return; }
   if (s_view==VIEW_HOME_REVIEW) {
+    if (!s_home_review_read) return;
     if (!signal_home_can_confirm(&s_home_intent,(uint32_t)time(NULL))) { clear_timeout(); home_expired(NULL); return; }
     s_home_intent.consumed=true; home_request("home-confirm"); return;
   }
@@ -564,7 +569,7 @@ static void up_click(ClickRecognizerRef r,void *context) {
 static void down_click(ClickRecognizerRef r,void *context) {
   if (s_view==VIEW_HOME_LIST) { int rows=s_home_page.count+(s_home_page.page>0)+(s_home_page.page+1<s_home_page.pages); if (s_home_selected+1<rows) s_home_selected++; }
   else if (s_view==VIEW_MENU) local_action("history");
-  else { s_scroll+=36; if (s_scroll>s_scroll_max) s_scroll=s_scroll_max; } redraw();
+  else { s_scroll+=36; if (s_scroll>s_scroll_max) s_scroll=s_scroll_max; if (s_view==VIEW_HOME_REVIEW && s_scroll_max>0 && s_scroll>=s_scroll_max) s_home_review_read=true; } redraw();
 }
 static void down_long(ClickRecognizerRef r,void *context) { if (s_view==VIEW_MENU) home_list(0); }
 static void back_click(ClickRecognizerRef r,void *context) {
@@ -681,9 +686,11 @@ static void draw_body(Layer *layer,GContext *ctx) {
     if (s_scroll>s_scroll_max) s_scroll=s_scroll_max;
     markdown_body(ctx,b.size.w,s_scroll); return;
   }
-  GSize size=graphics_text_layout_get_content_size(body_text(),font(),GRect(0,0,b.size.w,6000),GTextOverflowModeWordWrap,GTextAlignmentLeft);
+  const char *text=body_text();
+  GSize size=graphics_text_layout_get_content_size(text,font(),GRect(0,0,b.size.w,6000),GTextOverflowModeWordWrap,GTextAlignmentLeft);
   s_scroll_max=size.h>b.size.h?size.h-b.size.h:0; if (s_scroll>s_scroll_max) s_scroll=s_scroll_max;
-  graphics_draw_text(ctx,body_text(),font(),GRect(0,-s_scroll,b.size.w,6000),GTextOverflowModeWordWrap,GTextAlignmentLeft,NULL);
+  if (s_view==VIEW_HOME_REVIEW && s_scroll_max==0) s_home_review_read=true;
+  graphics_draw_text(ctx,text,font(),GRect(0,-s_scroll,b.size.w,6000),GTextOverflowModeWordWrap,GTextAlignmentLeft,NULL);
 }
 static void draw(Layer *layer,GContext *ctx) {
   GRect b=layer_get_bounds(layer); int inset=PBL_IF_ROUND_ELSE(b.size.w/7,7);
@@ -696,9 +703,9 @@ static void draw(Layer *layer,GContext *ctx) {
   }
   graphics_context_set_stroke_color(ctx,PBL_IF_COLOR_ELSE(GColorCyan,GColorWhite)); graphics_draw_line(ctx,GPoint(inset,s_view==VIEW_MENU?44:34),GPoint(b.size.w-inset,s_view==VIEW_MENU?44:34));
   graphics_context_set_text_color(ctx,GColorWhite);
-  const char *footer=s_view==VIEW_HOME_REVIEW?"Select: Confirm | Back: cancel":s_view==VIEW_HOME_LIST?"Up/Down: choose | Select":s_view==VIEW_HOME_DETAIL?(s_home_intent.action[0]?"Select: review | Back: home":"Up/Down: read | Back: home"):s_view==VIEW_HOME_HANDOFF?"Select: phone | Back: home":s_view==VIEW_HOME_RESULT?"Select: favorites | Back: home":s_view==VIEW_REVIEW?"Select: Send | Back: keep":busy()?"Back: stop":s_view==VIEW_MENU?(s_connected?(s_bridge_ready?(s_home_available?"Hold DOWN: Home":"Hold SELECT: help"):"Open phone app"):"Phone disconnected"):"Up/Down: read";
+  const char *footer=s_view==VIEW_HOME_REVIEW?(s_home_review_read?"Select: Confirm | Back: cancel":"Down: read more | Back: cancel"):s_view==VIEW_HOME_LIST?"Up/Down: choose | Select":s_view==VIEW_HOME_DETAIL?(s_home_intent.action[0]?"Select: review | Back: home":"Up/Down: read | Back: home"):s_view==VIEW_HOME_HANDOFF?"Select: phone | Back: home":s_view==VIEW_HOME_RESULT?"Select: favorites | Back: home":s_view==VIEW_REVIEW?"Select: Send | Back: keep":busy()?"Back: stop":s_view==VIEW_MENU?(s_connected?(s_bridge_ready?(s_home_available?"Hold DOWN: Home":"Hold SELECT: help"):"Open phone app"):"Phone disconnected"):"Up/Down: read";
   if (s_view>=VIEW_HOME_LIST) {
-    const char *primary=s_view==VIEW_HOME_REVIEW?"Select: confirm":s_view==VIEW_HOME_LIST?"Select: open":s_view==VIEW_HOME_DETAIL?(s_home_intent.action[0]?"Select: review":"Up/Down: read"):s_view==VIEW_HOME_HANDOFF?"Select: phone":"Select: favorites";
+    const char *primary=s_view==VIEW_HOME_REVIEW?(s_home_review_read?"Select: confirm":"Down: read more"):s_view==VIEW_HOME_LIST?"Select: open":s_view==VIEW_HOME_DETAIL?(s_home_intent.action[0]?"Select: review":"Up/Down: read"):s_view==VIEW_HOME_HANDOFF?"Select: phone":"Select: favorites";
     const char *secondary=s_view==VIEW_HOME_REVIEW?"Back: cancel":s_view==VIEW_HOME_LIST?"Up/Down: choose":"Back: home";
     graphics_draw_text(ctx,primary,fonts_get_system_font(FONT_KEY_GOTHIC_14),GRect(inset,b.size.h-43,b.size.w-2*inset,18),GTextOverflowModeWordWrap,GTextAlignmentCenter,NULL);
     graphics_draw_text(ctx,secondary,fonts_get_system_font(FONT_KEY_GOTHIC_14),GRect(inset,b.size.h-28,b.size.w-2*inset,18),GTextOverflowModeWordWrap,GTextAlignmentCenter,NULL);

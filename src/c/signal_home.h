@@ -15,6 +15,10 @@ typedef struct { char id[SIGNAL_HOME_ID_CAP], label[SIGNAL_HOME_LABEL_CAP]; } Si
 typedef struct { SignalHomeItem items[SIGNAL_HOME_PAGE_SIZE]; uint16_t page,pages; uint8_t count; } SignalHomePage;
 typedef struct { char favorite[SIGNAL_HOME_ID_CAP],action[SIGNAL_HOME_ID_CAP],intent[SIGNAL_HOME_ID_CAP]; uint32_t expires; bool consumed; } SignalHomeIntent;
 
+static inline bool signal_home_available_after_sync(bool current,bool bridge_present,bool home_present,bool home_supported) {
+  return home_present ? home_supported : bridge_present ? false : current;
+}
+
 // Validate complete UTF-8. Never turn truncated target/review text into an action.
 static inline bool signal_home_utf8(const char *s,size_t n) {
   for (size_t i=0;i<n;) {

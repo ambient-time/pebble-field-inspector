@@ -133,10 +133,12 @@ is public and serves version 1.7.1, checked September 15. The watch app is still
 the six targets has a banner and three screenshots showing the home screen,
 phone handoff and help. The
 [direct download](https://dr.eamer.dev/downloads/apps/signal-station/) remains
-available. The [Home release record](docs/home-release-2026-09-15.md) records
-1.7.1. The [earlier release receipt](store/publication-1.6.6.json) records the
-1.6.6 upload; the [media update](store/assets/signals-20260914/publication.json)
-records the later public listing and screenshot cleanup.
+available. The [Home release record](docs/home-release-2026-09-15.md) and
+[1.7.1 publication receipt](store/publication-1.7.1.json) record the current
+package identity. The [earlier release receipt](store/publication-1.6.6.json)
+records the 1.6.6 upload; the
+[media update](store/assets/signals-20260914/publication.json) records the later
+public listing and screenshot cleanup.
 
 Hold Select while reading a reply, then tap Open full reply in the Android app. Android build 16 or later is required; the exact saved reply opens without replacing a phone draft. Resume conversation remains a separate action.
 

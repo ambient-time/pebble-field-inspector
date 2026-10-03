@@ -28,6 +28,7 @@ static uint32_t s_request_id,s_home_reply_id,s_ack_id;
 static SignalHomePage s_home_page;
 static SignalHomeIntent s_home_wire,s_home_intent;
 static int s_home_selected,s_scroll,cancels,flushes;
+static bool s_home_review_read;
 static uint16_t s_home_requested_page;
 static char s_kind[16],s_home_text[SIGNAL_HOME_TEXT_CAP];
 static bool s_request_pending;
@@ -54,7 +55,7 @@ int main(void){
  home_receive(&d,10);assert(s_view==VIEW_HOME_DETAIL && !strcmp(s_home_intent.action,"action"));
  reset("home-open");text(&d,MESSAGE_KEY_HomeFavorite,"other");home_receive(&d,10);assert(s_view==VIEW_HOME_RESULT && cancels==1 && !s_ack_id);
  reset("home-review");d=message("review");text(&d,MESSAGE_KEY_HomeFavorite,"favorite");text(&d,MESSAGE_KEY_HomeAction,"action");text(&d,MESSAGE_KEY_HomeIntent,"immutable-intent");number(&d,MESSAGE_KEY_HomeExpires,(uint32_t)time(NULL)+120);text(&d,MESSAGE_KEY_ResponseText,"Turn Kitchen light on. Exact target and parameters.");
- home_receive(&d,10);assert(s_view==VIEW_HOME_REVIEW && s_timeout_timer && signal_home_can_confirm(&s_home_intent,(uint32_t)time(NULL)));
+ home_receive(&d,10);assert(s_view==VIEW_HOME_REVIEW && !s_home_review_read && s_timeout_timer && signal_home_can_confirm(&s_home_intent,(uint32_t)time(NULL)));
  reset("home-review");number(&d,MESSAGE_KEY_HomeExpires,(uint32_t)time(NULL)-1);home_receive(&d,10);assert(s_view==VIEW_HOME_RESULT && cancels==1);
  reset("home-review");number(&d,MESSAGE_KEY_HomeExpires,(uint32_t)time(NULL)+121);home_receive(&d,10);assert(s_view==VIEW_HOME_RESULT && !s_ack_id);
  reset("home-review");number(&d,MESSAGE_KEY_HomeExpires,(uint32_t)time(NULL)+100);text(&d,MESSAGE_KEY_HomeAction,"different");home_receive(&d,10);assert(s_view==VIEW_HOME_RESULT);

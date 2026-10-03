@@ -23,5 +23,9 @@ int main(void) {
  assert(!signal_home_intent(&intent,"favorite","action","intent",100,100));
  assert(!signal_home_intent(&intent,"favorite","action","",200,100));
  assert(!signal_home_intent(&intent,"favorite\nother","action","intent",200,100));
- puts("PASS Home page atomic parsing, exact UTF-8/identity bounds and single-use expiring review");
+ assert(signal_home_available_after_sync(true,false,false,false));
+ assert(!signal_home_available_after_sync(true,true,false,false));
+ assert(signal_home_available_after_sync(false,true,true,true));
+ assert(!signal_home_available_after_sync(true,true,true,false));
+ puts("PASS Home page parsing, capability withdrawal, UTF-8/identity bounds and single-use review");
 }

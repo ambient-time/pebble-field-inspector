@@ -60,6 +60,7 @@ static unsigned s_request_id=10;
 static bool s_request_pending;
 static SignalHomePage s_home_page;
 static SignalHomeIntent s_home_intent;
+static bool s_home_review_read;
 static int s_home_selected, home_requests, home_cancels;
 static void clear_timeout(void) {}
 static bool home_view(void) { return s_view>=VIEW_HOME_LIST || (s_view==VIEW_WAIT && !strncmp(s_kind,"home-",5)); }
@@ -109,6 +110,8 @@ int main(void) {
   s_view=VIEW_HOME_DETAIL;strcpy(s_home_intent.action,"turn-on");select_click(NULL,NULL);assert(!strcmp(s_kind,"home-review") && home_requests==4);
   assert(signal_home_intent(&s_home_intent,"exact-favorite","turn-on","nonce",(unsigned)time(NULL)+100,(unsigned)time(NULL)));s_view=VIEW_HOME_REVIEW;
   select_long(NULL,NULL);assert(s_view==VIEW_HOME_REVIEW && home_requests==4);
+  select_click(NULL,NULL);assert(!s_home_intent.consumed && home_requests==4);
+  s_home_review_read=true;
   select_click(NULL,NULL);assert(s_home_intent.consumed && !strcmp(s_kind,"home-confirm") && home_requests==5);
   select_click(NULL,NULL);assert(home_requests==5);back_click(NULL,NULL);assert(home_cancels==1 && s_view==VIEW_MENU);
   puts("PASS actual shortcuts, Home navigation/review/single confirmation, scrolling and Back");
@@ -119,6 +122,45 @@ with tempfile.TemporaryDirectory() as tmp:
     binary = Path(tmp) / 'buttons'
     subprocess.run(['cc', '-std=c99', '-Wall', '-Werror', '-I',str(root/'src/c'),str(c), '-o', str(binary)], check=True)
     subprocess.run([str(binary)], check=True)
+
+# Ask must wait for the negotiated native bridge after a reconnect, even if the
+# previous provider configuration is still cached on the watch.
+ask = source[source.index('static void ask(void) {'):source.index('\nstatic void local_action(')]
+program = r'''#include <assert.h>
+#include <stdbool.h>
+#include <stdio.h>
+#include <string.h>
+#define PBL_MICROPHONE 1
+typedef void DictationSession;
+typedef int DictationSessionStatus;
+enum { DictationSessionStatusSuccess };
+enum { VIEW_READER, VIEW_DICTATION };
+static bool s_configured,s_connected,s_bridge_ready,s_phone_record,s_confirm;
+static int s_view,s_scroll,creates,starts;
+static char s_status[160];
+static DictationSession *s_dictation;
+static bool busy(void){return false;}
+static void redraw(void){}
+static void cancel_turn(const char *message){snprintf(s_status,sizeof s_status,"%s",message);}
+static void dictated(DictationSession *session,DictationSessionStatus status,char *text,void *context){(void)session;(void)status;(void)text;(void)context;}
+static DictationSession *dictation_session_create(unsigned size,void (*callback)(DictationSession*,DictationSessionStatus,char*,void*),void *context){(void)size;(void)callback;(void)context;creates++;return (DictationSession*)1;}
+static void dictation_session_enable_confirmation(DictationSession *session,bool enabled){(void)session;(void)enabled;}
+static void dictation_session_enable_error_dialogs(DictationSession *session,bool enabled){(void)session;(void)enabled;}
+static DictationSessionStatus dictation_session_start(DictationSession *session){(void)session;starts++;return DictationSessionStatusSuccess;}
+''' + ask + r'''
+int main(void){
+  s_configured=s_connected=true;s_bridge_ready=false;ask();
+  assert(creates==0 && starts==0 && s_view==VIEW_READER && strstr(s_status,"phone"));
+  s_bridge_ready=true;s_status[0]=0;ask();
+  assert(creates==1 && starts==1 && s_view==VIEW_DICTATION);
+  puts("PASS Ask waits for native bridge readiness after reconnect");
+}
+'''
+with tempfile.TemporaryDirectory() as tmp:
+    c=Path(tmp)/'ask.c';c.write_text(program)
+    binary=Path(tmp)/'ask'
+    subprocess.run(['cc','-std=c99','-Wall','-Werror',str(c),'-o',str(binary)],check=True)
+    subprocess.run([str(binary)],check=True)
 
 # Exercise the real batch walker with sparse source selections. Instrument calls
 # so an empty batch must advance without nesting another watch stack frame.
