@@ -13,27 +13,28 @@ By Luke Steuber. Install the separate **Signal Station** Android app alongside
 your usual Pebble app. Signal Station owns chat, readings and local history;
 the Pebble app keeps the watch connected. The watch app is still in testing.
 
-## Home release — September 15, 2026
+## Current testing downloads — October 3, 2026
 
-Pebble **1.7.1** and Android build **17** (`0.5.0-home-dev`) are published on the
-[download page](https://dr.eamer.dev/downloads/apps/signal-station/); 1.7.1 is
-also [published in the Pebble Store](https://apps.repebble.com/37360ca4d9764881bd1d6f4d).
+The [download page](https://dr.eamer.dev/downloads/apps/signal-station/) offers
+Pebble **1.8.1** and Android build **20** (`0.7.0-local-dev`) as testing previews.
+Pebble 1.8.1 is staged as a Store draft; **1.7.1** remains the
+[published Store release](https://apps.repebble.com/37360ca4d9764881bd1d6f4d).
 Hold Down at home for [Home favorites](docs/watch-home.md) selected on the phone:
 readings, declared controls and scenes from Home Assistant, openHAB or Geepers.
 The phone owns credentials, exact-action permissions and dispatch. Home starts
 unconnected, with no standing action grants. Existing short-button actions remain.
 
-See [release evidence](docs/home-release-2026-09-15.md) for package identity and
+See [current release evidence](docs/download-preview-2026-10-03.md) for package identity and
 remaining physical acceptance. The [iOS/Garmin capability audit](https://github.com/ambient-time/pebble-inspector-companion/blob/codex/signal-station/docs/signal-station/platform-capabilities.md)
 describes future ports; it does not establish another working companion.
 
 ## On your wrist
 
-Unreleased source adds an exact review before each wrist question. After a
+The 1.8.1 preview adds an exact review before each wrist question. After a
 capture, Select asks about that specific saved record; after an answer, Select
 starts a follow-up. The draft offers Review and send, per-question Home access,
 Edit question, and Continue on phone. Home defaults to None for every new
-question. These changes are not part of the published 1.7.1 package described above.
+question. These changes are available in the direct preview download; the public Store release remains 1.7.1.
 
 The home screen maps directly to the three right-hand buttons:
 
