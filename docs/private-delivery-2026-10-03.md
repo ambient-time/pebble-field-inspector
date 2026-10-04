@@ -76,3 +76,30 @@ and watch firmware without replacing the pairing owner. Keep the recovered
 2 SE's [incident boundary](pebble-2-reset-investigation.md) separate from the
 Time 2 installation receipt. Do not use the historical pairing companion or
 root PBW to reproduce the incident.
+
+## Observation timestamp correction and restored phone connection
+
+Measured: a regression using the production C formatters fails on the original
+source because an absent sensor produces `value: null`, `status: unavailable`
+and a fabricated `measuredAt`. The corrected formatter only emits a measurement
+timestamp for a non-null, fresh/available value with known timing. Collection
+time, attempted windows and local-day labels remain intact. A genuine zero is
+still data, and a positive heart rate without a known timestamp remains explicitly
+undated. All 12 synthetic formatter cases pass with address/undefined-behavior
+sanitizers, as do the full host suite and all six native target builds. Existing
+SDK linker RWX-segment warnings remain; no warning-free build is claimed.
+
+The Pixel 9a subsequently reappeared in ADB. Observed through its existing stock
+Pebble host 1.14.0.1: developer port 9000 responds, the watch reports Diorite,
+running firmware `v4.4.3-rbl` and recovery firmware `v4.0.1-prf6`. The host was
+already paired and its developer server already enabled. Read-only version and
+run-state requests succeeded; no watch app was launched or installed. The temporary
+USB port forward was removed after the query. Signal Android build 20 is still
+installed, with the earlier first-install and update timestamps preserved.
+
+Galactus remains unavailable. The next standalone addon must be built from the
+corrected committed source using the companion's descriptor with a new version;
+do not overwrite the immutable 1.8.0 package or install the historical root PBW.
+Physical rendering, dictation, selected-source capture and reviewed-question
+delivery on this pair remain open. No new Store draft or public download was
+created or changed.

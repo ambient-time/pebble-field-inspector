@@ -250,7 +250,9 @@ static void append_observation_ms(const char *key, const char *value, const char
 static void append_observation(const char *key, const char *value, const char *unit, const char *status,
                                const char *period, time_t from, time_t end, bool date) {
   bool known=strcmp(status,"timestamp_unknown")!=0;
-  append_observation_ms(key,value,unit,status,period,known?(int64_t)from*1000:-1,known?(int64_t)end*1000:-1,known,NULL,date);
+  // An attempted collection window is not proof that a measurement exists.
+  bool measured=known && strcmp(value,"null")!=0 && (!strcmp(status,"fresh") || !strcmp(status,"available"));
+  append_observation_ms(key,value,unit,status,period,known?(int64_t)from*1000:-1,known?(int64_t)end*1000:-1,measured,NULL,date);
 }
 #ifdef PBL_HEALTH
 static const char *access_status(HealthServiceAccessibilityMask mask) {
