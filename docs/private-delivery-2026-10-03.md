@@ -42,3 +42,37 @@ capture or Home action was sent. The matching phone now has development build 19
 with foreground screen lighting; its installed hash is recorded in the companion's
 `docs/signal-station/screen-awake.md`. Pairing and saved data were not cleared.
 The unpublished 1.8.0 draft and public 1.7.1 listing remain unchanged.
+
+## 2 SE continuation checkpoint
+
+The next requested device pair is Pebble 2 SE and the Pixel previously identified
+as Pixel 9a. At this checkpoint, ADB lists no devices or discovered wireless
+debugging services. Galactus is absent from the mounted volumes and external
+physical disk inventory; the canonical Android checkout and pinned preview
+artifacts are unavailable. No pairing, firmware, application install, provider
+setting, or public release was changed during this continuation.
+
+Measured on source `915ac54`: all 34 historical phone-protocol tests and the
+native host contracts pass. An incremental native build initially failed because
+its generated message-key header predated the reviewed-question keys. The
+documented `pebble clean` followed by `pebble build` succeeds for all six targets
+with CLI 5.0.39 and SDK 4.33.1. This root build remains the historical 1.3.0 PKJS
+package, not a replacement for the pinned standalone addon; do not install it.
+
+Source inspection found a further observation-provenance issue: the scalar
+formatter attaches `measuredAt` to unavailable or permission-denied values.
+The planned narrow correction separates attempted collection/window timestamps
+from an actual measurement, with a production-formatter regression test.
+
+The prior phone verification receipt records Signal Android
+`0.7.0-local-dev` build 20 installed on both Pixels, SHA-256
+`5a2258e38ab2f5204ab4b21118e09543ec196a78f697f1557b63b54063ea2d76`.
+Those are earlier install observations, not freshly verified device state.
+The source is pinned by companion commit `25ff91ba45babb87930da85bdcf5fa9817f2b10a`.
+Real Gemma inference and a completed 2 SE watch/phone exchange remain unverified.
+
+When the devices and drive return, first read the existing stock-host connection
+and watch firmware without replacing the pairing owner. Keep the recovered
+2 SE's [incident boundary](pebble-2-reset-investigation.md) separate from the
+Time 2 installation receipt. Do not use the historical pairing companion or
+root PBW to reproduce the incident.
