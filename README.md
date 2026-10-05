@@ -28,6 +28,19 @@ See [current release evidence](docs/download-preview-2026-10-03.md) for package 
 remaining physical acceptance. The [iOS/Garmin capability audit](https://github.com/ambient-time/pebble-inspector-companion/blob/codex/signal-station/docs/signal-station/platform-capabilities.md)
 describes future ports; it does not establish another working companion.
 
+## Private validation checkpoint — October 4, 2026
+
+Signal Station Android **0.9.1-public-data-dev (23)** is privately installed on
+Pixel 9a and Pixel 10 with matching artifact checksums. It includes environmental
+readings and a correction to public-feed connection warnings. The watch preview
+remains **1.8.1**; this phone fix made no new watch package or public release.
+
+The [phone and watch diagnostic record](https://github.com/ambient-time/pebble-inspector-companion/blob/codex/signal-consent/docs/signal-station/attention-watch-validation-2026-10-04.md)
+records the remaining physical 2 SE favorite-screen and TalkBack checks. A running
+Signal acknowledgement can coexist with a system Ping overlay; dismiss that
+overlay on the watch before checking favorites. Use version or current-app
+requests for screen-neutral diagnostics. An acknowledgement is not visual acceptance.
+
 ## On your wrist
 
 The 1.8.1 preview adds an exact review before each wrist question. After a
