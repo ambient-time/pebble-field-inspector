@@ -25,21 +25,33 @@ The phone owns credentials, exact-action permissions and dispatch. Home starts
 unconnected, with no standing action grants. Existing short-button actions remain.
 
 See [current release evidence](docs/download-preview-2026-10-03.md) for package identity and
-remaining physical acceptance. The [iOS/Garmin capability audit](https://github.com/ambient-time/pebble-inspector-companion/blob/codex/signal-station/docs/signal-station/platform-capabilities.md)
+remaining physical acceptance. The [iOS/Garmin capability audit](https://github.com/ambient-time/pebble-inspector-companion/blob/codex/signal-consent/docs/signal-station/platform-capabilities.md)
 describes future ports; it does not establish another working companion.
 
-## Private validation checkpoint — October 4, 2026
+## Private validation checkpoint — October 5, 2026
 
-Signal Station Android **0.9.1-public-data-dev (23)** is privately installed on
-Pixel 9a and Pixel 10 with matching artifact checksums. It includes environmental
-readings and a correction to public-feed connection warnings. The watch preview
-remains **1.8.1**; this phone fix made no new watch package or public release.
+Signal Station Android **0.9.2-public-data-dev (24)** is privately installed on
+Pixel 9a and Pixel 10 with matching artifact checksums. It adds provider-response
+safety guards to the environmental readings and public-feed connection fixes.
+The watch preview remains **1.8.1**; this phone fix made no new watch package or
+public release. See the [build 24 receipt](https://github.com/ambient-time/pebble-inspector-companion/blob/codex/signal-consent/docs/signal-station/private-build24-2026-10-05.md).
 
 The [phone and watch diagnostic record](https://github.com/ambient-time/pebble-inspector-companion/blob/codex/signal-consent/docs/signal-station/attention-watch-validation-2026-10-04.md)
 records the remaining physical 2 SE favorite-screen and TalkBack checks. A running
-Signal acknowledgement can coexist with a system Ping overlay; dismiss that
-overlay on the watch before checking favorites. Use version or current-app
-requests for screen-neutral diagnostics. An acknowledgement is not visual acceptance.
+app acknowledgement can coexist with a system overlay such as Ping or Fully
+Charged. Press Back (the single left button) to dismiss it, open Signal Station,
+then hold Down (bottom-right) and select a favorite. Verify the value, source and
+age. Use version or current-app requests for screen-neutral diagnostics. An
+acknowledgement is not visual acceptance.
+
+## Product direction
+
+Signal Station is intended to combine conversation, speech, sensing and optional
+home tools, including generic ESP32 integrations. Current replies are text-only:
+Dick Tracy's phone speech, watch playback and Auto-read have not been ported.
+The [direction and reuse guide](https://github.com/ambient-time/pebble-inspector-companion/blob/codex/signal-consent/docs/signal-station/product-direction.md)
+separates existing capabilities, proposed reuse and the next validation gates.
+Text, readings and Home favorites do not require a watch speaker.
 
 ## On your wrist
 
@@ -143,8 +155,10 @@ phone operation require a named-device run; building does not establish them.
 
 See [BUILD.md](BUILD.md) for reproducible checks. The old speech experiment and
 recovery artifacts remain preserved in [the historical handoff](docs/experiment-handoff.md).
-Its speaker-performance gates do not apply to this text-only successor. The old
-server source remains available for recovery. Signal Station does not call it.
+Its speaker-performance gates do not apply to the current text-only release.
+Future speech work needs new evidence; it must not inherit acceptance from the
+parked experiment or another app. The old server source remains available for
+recovery. Signal Station does not call it.
 
 ## Pebble Store release
 

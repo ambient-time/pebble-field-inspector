@@ -6,12 +6,16 @@ publication and remaining physical phone/watch acceptance.
 
 Hold Down on the home screen to open Home favorites selected on the phone.
 Up and Down move through up to four favorites per page and Previous/Next page
-rows. Select opens the full detail. The unreleased reviewed-question source
+rows. Select opens the full detail. The direct-download 1.8.1 preview
 changes actions to always prepare → review → explicit confirm, including actions
 with standing permissions. Reviews expire within two minutes. Select confirms
 once after all details fit or have been scrolled into view; Back cancels.
 Hold Select never confirms an action. Published 1.7.1 previously dispatched an
 exact standing grant directly from Review; its immutable release record remains.
+See the [preview receipt](download-preview-2026-10-03.md). Phone environmental
+readings and MQTT support are newer private-preview features; they reuse this
+wire contract and do not require a speaker. Physical 2 SE favorite-screen
+acceptance remains open as of October 5; installation alone does not close it.
 
 Tap Up still captures readings, tap Select asks, tap Down opens History, and Hold
 Select opens help from the home screen. Reports and Home detail scroll with Up
