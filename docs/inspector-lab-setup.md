@@ -30,10 +30,10 @@ whether phone settings contain an installation token. Never record its value.
 
 ## Prepare the lab companion
 
-The private source fork lives at
-a local checkout of `pebble-inspector-companion`, based on Core Devices commit
-`d52101ad3d8940c5aa392d6f224e774cb6f5ce84`. Its
-[build guide](https://github.com/lukeslp/pebble-inspector-companion/blob/inspector-lab/INSPECTOR_LAB.md)
+The companion source is
+[`ambient-time/pebble-inspector-companion`](https://github.com/ambient-time/pebble-inspector-companion),
+based on Core Devices commit `d52101ad3d8940c5aa392d6f224e774cb6f5ce84`. Its
+[build guide](https://github.com/ambient-time/pebble-inspector-companion/blob/codex/signal-station/INSPECTOR_LAB.md)
 owns Android commands and package verification.
 
 Check the built APK before installing:
