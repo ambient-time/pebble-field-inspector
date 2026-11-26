@@ -69,3 +69,10 @@ with tempfile.TemporaryDirectory(prefix='signal-home-c-') as td:
  p=Path(td)/'test.c';p.write_text(prefix+'\n'.join(fn(n) for n in ['home_string','home_uint','home_receive'])+body)
  subprocess.run(['cc','-std=c99','-Wall','-Wextra','-Werror','-fsanitize=address,undefined','-I',str(ROOT/'src/c'),str(p),'-o',td+'/test'],check=True)
  subprocess.run([td+'/test'],check=True)
+
+# A confirm that times out must not invite a second send.
+timeout_src=fn('timeout_text')
+with tempfile.TemporaryDirectory() as d:
+ c=Path(d)/'t.c'; c.write_text('#include <assert.h>\n#include <string.h>\n'+timeout_src+'\nint main(void){assert(strstr(timeout_text("home-confirm"),"may have run"));assert(!strstr(timeout_text("home-confirm"),"ask again"));assert(strstr(timeout_text("home-list"),"ask again"));assert(strstr(timeout_text("question"),"ask again"));return 0;}\n')
+ subprocess.run(['cc','-Wall','-Werror','-o',str(Path(d)/'t'),str(c)],check=True); subprocess.run([str(Path(d)/'t')],check=True)
+print('Home timeout wording checks passed.')
