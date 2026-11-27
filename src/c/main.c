@@ -84,7 +84,12 @@ static void cancel_turn(const char *message) {
   snprintf(s_status, sizeof s_status, "%s", message);
   s_scroll = 0; flush(NULL); redraw();
 }
-static void timeout(void *unused) { s_timeout_timer = NULL; cancel_turn("Timed out. Check the phone, then ask again."); }
+// After a confirm leaves the watch the action may have run, so never ask for it again.
+static const char *timeout_text(const char *kind) {
+  return strcmp(kind, "home-confirm") ? "Timed out. Check the phone, then ask again."
+    : "No result from the phone. The action may have run. Check your phone before trying again.";
+}
+static void timeout(void *unused) { s_timeout_timer = NULL; cancel_turn(timeout_text(s_kind)); }
 static void start_timeout(void) { clear_timeout(); s_timeout_timer = app_timer_register(100000, timeout, NULL); }
 static void next_request(void) {
   s_request_id = s_request_id >= 2147483646 ? 1 : s_request_id + 1;
