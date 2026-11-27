@@ -187,9 +187,7 @@ My original code and documentation use the [MIT License](LICENSE). Bundled
 third-party software retains its own notices, including Pebble Clay.
 See [public source access](docs/open-source.md) for repository and release details.
 
-## Around here
+## Related
 
-[Luke Steuber](https://github.com/lukeslp) · [Data Poems](https://github.com/data-poems) · [Ambient Time](https://github.com/ambient-time) · [Actually Useful AI](https://github.com/actually-useful-ai) · [One Impossible Thing](https://github.com/one-impossible-thing)
-
-Made by [Luke Steuber](https://lukesteuber.com). Questions or collaboration:
-[luke@lukesteuber.com](mailto:luke@lukesteuber.com).
+- [Signal Station companion](https://github.com/ambient-time/pebble-inspector-companion)
+- [Signal Station download](https://dr.eamer.dev/downloads/apps/signal-station/)
